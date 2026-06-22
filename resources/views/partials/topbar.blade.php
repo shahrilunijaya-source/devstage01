@@ -13,6 +13,15 @@
 
     @yield('topbar-actions')
 
+    @auth
+        <form method="GET" action="{{ route('search') }}" class="hidden md:block mr-2">
+            <div class="relative">
+                <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg>
+                <input type="search" name="q" placeholder="Search objects…" class="w-56 pl-8 pr-3 py-1.5 text-[13px] bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal/30 focus:border-teal">
+            </div>
+        </form>
+    @endauth
+
     <div class="flex items-center gap-2 ml-auto">
         @auth
             @php($tbUser = auth()->user())

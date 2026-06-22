@@ -15,6 +15,7 @@ use App\Http\Controllers\PortfolioChatController;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\Project\CalendarController;
 use App\Http\Controllers\Project\ChatController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StageController;
 use App\Http\Controllers\UrsbDashboardController;
@@ -94,6 +95,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin/settings', [SettingsController::class, 'index'])->name('admin.settings.index');
         Route::post('/admin/settings', [SettingsController::class, 'update'])->name('admin.settings.update');
     });
+
+    // Cross-project object search.
+    Route::get('/search', [SearchController::class, 'index'])->name('search');
 
     // Phase-1 graph verification view.
     Route::get('/ursb', [UrsbDashboardController::class, 'index'])->name('ursb.dashboard');
