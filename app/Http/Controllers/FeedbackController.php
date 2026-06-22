@@ -97,10 +97,21 @@ class FeedbackController extends Controller
             return $disk->download($attachment->path, $attachment->original_name);
         }
 
+        // Only inline-render image/pdf previews; anything else (incl. user-spoofed
+        // text/html or svg) is forced to a non-rendering type. nosniff stops the
+        // browser from ignoring that and treating the bytes as HTML → stored XSS.
+        $mime = (string) ($attachment->mime_type ?? '');
+        // SVG is image/* but can carry inline script — never inline it.
+        $safeInline = ($mime === 'application/pdf')
+            || (str_starts_with($mime, 'image/') && $mime !== 'image/svg+xml');
+
         return $disk->response(
             $attachment->path,
             $attachment->original_name,
-            ['Content-Type' => $attachment->mime_type ?? 'application/octet-stream']
+            [
+                'Content-Type' => $safeInline ? $mime : 'application/octet-stream',
+                'X-Content-Type-Options' => 'nosniff',
+            ]
         );
     }
 }

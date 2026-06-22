@@ -24,11 +24,11 @@ class PolicyDecisionPoint
     {
         $ref = $this->resolver->resolve($object);
 
-        if ($user->role === 'admin') {
+        if ($user->isAdmin()) {
             return $this->audit(Decision::permit('admin'), $user, $action, $ref, $pep, $field);
         }
 
-        if ($user->role === 'director' && in_array($action, self::READ_ACTIONS, true)) {
+        if ($user->isDirector() && in_array($action, self::READ_ACTIONS, true)) {
             return $this->audit(Decision::permit('director-read'), $user, $action, $ref, $pep, $field);
         }
 
@@ -78,7 +78,7 @@ class PolicyDecisionPoint
      */
     public function filterFields(User $user, mixed $object, array $fields): array
     {
-        if ($user->role === 'admin') {
+        if ($user->isAdmin()) {
             return [];
         }
 
@@ -127,7 +127,7 @@ class PolicyDecisionPoint
      */
     public function accessibleProjectIds(User $user, string $action = 'retrieve'): array
     {
-        if (in_array($user->role, ['admin', 'director'], true)) {
+        if ($user->isAdmin() || $user->isDirector()) {
             return DB::table('projects')->pluck('id')->map(fn ($id): int => (int) $id)->all();
         }
 
@@ -195,9 +195,13 @@ class PolicyDecisionPoint
 
     private function audit(Decision $decision, User $user, string $action, ?ScopeRef $ref, string $pep, ?string $field): Decision
     {
+        $request = request();
+
         AccessAudit::create([
             'user_id' => $user->id,
             'actor_id' => auth()->id(),
+            'ip' => $request->ip(),
+            'request_id' => $request->header('X-Request-Id') ?? (string) str()->uuid(),
             'decision' => $decision->permitted ? 'permit' : 'deny',
             'action' => $action,
             'object_type' => $ref?->objectType,

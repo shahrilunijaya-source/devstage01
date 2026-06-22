@@ -57,6 +57,6 @@ class SettingsController extends Controller
 
     private function authorizeAdmin(Request $request): void
     {
-        abort_unless($request->user()->role === 'admin', 403, 'Administrators only.');
+        abort_unless($request->user()->isAdmin(), 403, 'Administrators only.');
     }
 }

@@ -50,7 +50,9 @@ class AnthropicClient
             ]);
 
         if ($response->failed()) {
-            throw new RuntimeException('Anthropic request failed: '.$response->status().' '.$response->body());
+            // Status only — the body can echo the (attacker-controllable) prompt
+            // content and would otherwise land verbatim in the application log.
+            throw new RuntimeException('Anthropic request failed with HTTP '.$response->status().'.');
         }
 
         // content is an array of blocks; concatenate the text blocks.
@@ -96,7 +98,9 @@ class AnthropicClient
             ]);
 
             if ($response->failed()) {
-                throw new RuntimeException('Anthropic request failed: '.$response->status().' '.$response->body());
+                // Status only — the body can echo the (attacker-controllable) prompt
+                // content and would otherwise land verbatim in the application log.
+                throw new RuntimeException('Anthropic request failed with HTTP '.$response->status().'.');
             }
 
             $content = $response->json('content', []);

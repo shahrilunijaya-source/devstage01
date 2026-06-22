@@ -46,7 +46,7 @@ class DelegationService
         }
 
         // Cannot delegate what you do not hold (admins always may).
-        if ($delegator->role !== 'admin' && ! $this->holds($delegator, $scopeType, $scopeId, $tenantId)) {
+        if (! $delegator->isAdmin() && ! $this->holds($delegator, $scopeType, $scopeId, $tenantId)) {
             throw new DelegationException('Delegator does not hold covering access for this scope.');
         }
 

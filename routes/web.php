@@ -77,17 +77,21 @@ Route::middleware('auth')->group(function () {
     Route::post('/portfolio/changes/{change}/reject', [ChangeRequestController::class, 'reject'])->name('changes.reject');
     Route::post('/portfolio/changes/{change}/apply', [ChangeRequestController::class, 'apply'])->name('changes.apply');
 
-    // Access Control administration (PRD §6.4 ACL-12).
-    Route::get('/admin/acl', [AclController::class, 'index'])->name('admin.acl.index');
-    Route::post('/admin/acl/grant', [AclController::class, 'grant'])->name('admin.acl.grant');
-    Route::post('/admin/acl/bindings/{binding}/revoke', [AclController::class, 'revoke'])->name('admin.acl.revoke');
-    Route::post('/admin/acl/delegate', [AclController::class, 'delegate'])->name('admin.acl.delegate');
-    Route::post('/admin/acl/delegations/{delegation}/revoke', [AclController::class, 'revokeDelegation'])->name('admin.acl.delegation.revoke');
-    Route::get('/admin/acl/audit', [AclController::class, 'audit'])->name('admin.acl.audit');
+    // Admin surfaces — route-level can:admin gate (system_role) in addition to the
+    // in-controller check, so a new admin action can never ship unguarded.
+    Route::middleware('can:admin')->group(function () {
+        // Access Control administration (PRD §6.4 ACL-12).
+        Route::get('/admin/acl', [AclController::class, 'index'])->name('admin.acl.index');
+        Route::post('/admin/acl/grant', [AclController::class, 'grant'])->name('admin.acl.grant');
+        Route::post('/admin/acl/bindings/{binding}/revoke', [AclController::class, 'revoke'])->name('admin.acl.revoke');
+        Route::post('/admin/acl/delegate', [AclController::class, 'delegate'])->name('admin.acl.delegate');
+        Route::post('/admin/acl/delegations/{delegation}/revoke', [AclController::class, 'revokeDelegation'])->name('admin.acl.delegation.revoke');
+        Route::get('/admin/acl/audit', [AclController::class, 'audit'])->name('admin.acl.audit');
 
-    // Platform settings (API keys + feature flags).
-    Route::get('/admin/settings', [SettingsController::class, 'index'])->name('admin.settings.index');
-    Route::post('/admin/settings', [SettingsController::class, 'update'])->name('admin.settings.update');
+        // Platform settings (API keys + feature flags).
+        Route::get('/admin/settings', [SettingsController::class, 'index'])->name('admin.settings.index');
+        Route::post('/admin/settings', [SettingsController::class, 'update'])->name('admin.settings.update');
+    });
 
     // Phase-1 graph verification view.
     Route::get('/ursb', [UrsbDashboardController::class, 'index'])->name('ursb.dashboard');

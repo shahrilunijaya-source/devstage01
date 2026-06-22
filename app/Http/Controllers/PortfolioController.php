@@ -142,6 +142,6 @@ class PortfolioController extends Controller
     {
         // Creating a brand-new project has no existing scope to bind against;
         // restrict to platform admins/directors (system role).
-        return in_array($request->user()->role, ['admin', 'director'], true);
+        return $request->user()->isAdmin() || $request->user()->isDirector();
     }
 }

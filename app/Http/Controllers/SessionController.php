@@ -64,7 +64,11 @@ class SessionController extends Controller
             'label' => ['required', 'string', 'max:255'],
             'source_type' => ['required', 'in:paste,file'],
             'text' => ['required_if:source_type,paste', 'nullable', 'string'],
-            'file' => ['required_if:source_type,file', 'nullable', 'file', 'max:10240'],
+            // Allow-list document/image evidence only. `mimes` validates against the
+            // content-guessed type (finfo), not the spoofable client Content-Type,
+            // so an executable renamed to .pdf is still rejected.
+            'file' => ['required_if:source_type,file', 'nullable', 'file', 'max:10240',
+                'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,md,jpg,jpeg,png,gif,webp'],
             'classification' => ['nullable', 'in:public,internal,confidential,restricted'],
         ]);
 
@@ -76,7 +80,8 @@ class SessionController extends Controller
             $path = $file->store("evidence/{$session->project_id}");
             $attributes += [
                 'filename' => $file->getClientOriginalName(),
-                'mime' => $file->getClientMimeType(),
+                'mime' => $file->getMimeType(), // server-derived, not the client header
+
                 'size' => $file->getSize(),
                 'path' => $path,
             ];
