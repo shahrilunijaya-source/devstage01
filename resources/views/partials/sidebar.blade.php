@@ -45,8 +45,8 @@
             <a href="{{ route('admin.acl.index') }}"
                @class([
                    'flex items-center gap-3 px-5 py-2.5 text-[13px] font-medium transition-colors',
-                   'nav-active' => request()->routeIs('admin.*'),
-                   'text-white/65 hover:bg-white/5 hover:text-white/90' => ! request()->routeIs('admin.*'),
+                   'nav-active' => request()->routeIs('admin.acl.*'),
+                   'text-white/65 hover:bg-white/5 hover:text-white/90' => ! request()->routeIs('admin.acl.*'),
                ])>
                 <svg class="shrink-0 opacity-80" style="width:18px;height:18px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 008 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H2a2 2 0 110-4h.09A1.65 1.65 0 004.6 8a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V2a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H22a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
                 <span class="label">Access Control</span>

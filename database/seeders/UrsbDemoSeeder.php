@@ -3,9 +3,9 @@
 namespace Database\Seeders;
 
 use App\Enums\ObjectType;
-use App\Enums\RelationType;
 use App\Models\Acl\Role;
 use App\Models\Acl\ScopeBinding;
+use App\Models\Graph\EngObject;
 use App\Models\Portfolio\Module;
 use App\Models\Portfolio\Session;
 use App\Models\Portfolio\Tenant;
@@ -13,9 +13,9 @@ use App\Models\Project;
 use App\Models\User;
 use App\Services\Graph\BaselineService;
 use App\Services\Graph\ObjectGraphService;
-use App\Services\Graph\TraceService;
 use App\Services\Knowledge\KnowledgeResolver;
 use App\Services\Knowledge\KnowledgeSeeder;
+use App\Services\Session\SessionEngineService;
 use Illuminate\Database\Seeder;
 
 /**
@@ -58,30 +58,44 @@ class UrsbDemoSeeder extends Seeder
         }
         $brs = $module->stages()->where('stage', 'BRS')->firstOrFail();
 
+        // Admin drives + signs off the session (idempotent; seedUsers reconciles the rest).
+        $approver = User::firstOrCreate(
+            ['email' => 'admin@ursb.test'],
+            ['name' => 'URSB Admin', 'role' => 'admin', 'password' => bcrypt('password'), 'email_verified_at' => now()],
+        );
+
         $session = Session::create([
             'stage_id' => $brs->id, 'module_id' => $module->id, 'project_id' => $project->id,
             'title' => 'Payroll BRS — Session 1', 'process' => 'Salary processing',
-            'domain' => 'HR', 'location' => 'HQ', 'status' => 'approved',
+            'domain' => 'HR', 'location' => 'HQ', 'status' => 'draft', 'phase' => 'pre_analysis',
         ]);
 
         $graph = app(ObjectGraphService::class);
         $scope = ['module_id' => $module->id, 'stage_id' => $brs->id, 'session_id' => $session->id];
 
-        $evd = $graph->create(ObjectType::EVIDENCE, $tenant->id, $project->id, 'Payroll tender document', $scope + [
+        // Evidence enters as immutable source; a risk is captured alongside it.
+        $graph->create(ObjectType::EVIDENCE, $tenant->id, $project->id, 'Payroll tender document', $scope + [
             'body' => 'Tender clause 4.2 mandates monthly salary disbursement by the 25th.',
         ]);
-        $find = $graph->create(ObjectType::FINDING, $tenant->id, $project->id, 'Salary must disburse by the 25th', $scope);
-        $req = $graph->create(ObjectType::BUSINESS_REQUIREMENT, $tenant->id, $project->id, 'System shall disburse salaries by the 25th of each month', $scope);
+        $graph->create(ObjectType::RISK, $tenant->id, $project->id, 'Vendor onboarding may slip the go-live', $scope + [
+            'body' => 'Third-party payroll gateway integration depends on vendor onboarding lead time.',
+            'impact' => 'medium',
+        ]);
 
-        $trace = app(TraceService::class);
-        $trace->link($evd, $find, RelationType::DERIVED_FROM);
-        $trace->link($find, $req, RelationType::DERIVED_FROM);
+        // Run the five-phase lifecycle so the demo exercises every engine.
+        $engine = app(SessionEngineService::class);
+        $engine->preAnalyze($session->fresh());                  // AI drafts a finding + requirement
+        $engine->passFirewall($session->fresh(), $approver);
+        $engine->startSession($session->fresh());
 
-        // Admin signs off the baseline (idempotent; seedUsers reconciles the rest).
-        $approver = User::firstOrCreate(
-            ['email' => 'admin@ursb.test'],
-            ['name' => 'URSB Admin', 'role' => 'admin', 'password' => bcrypt('password'), 'email_verified_at' => now()],
-        );
+        foreach (EngObject::where('session_id', $session->id)->get() as $item) {
+            // High-impact requirements need a recorded decision; the rest are confirmed.
+            $decision = $item->type === ObjectType::BUSINESS_REQUIREMENT ? 'decide' : 'confirm';
+            $engine->capture($item, $decision, $approver);
+        }
+
+        $engine->consolidate($session->fresh());
+        $engine->approveSession($session->fresh(), $approver);
 
         app(BaselineService::class)->baseline($brs->fresh(), [
             'knowledge_book_version' => 'v2026.1',
