@@ -70,10 +70,8 @@
                         @if ($stage->currentBaseline)
                             <a class="btn-secondary" href="{{ route('baselines.show', $stage->currentBaseline) }}">
                                 {{ $stage->stage->label() }}: {{ $stage->currentBaseline->version_label }} ↗</a>
-                        @elseif ($canBaseline)
-                            <form method="POST" action="{{ route('stages.baseline', $stage) }}">@csrf
-                                <button class="btn-primary" type="submit">Baseline {{ $stage->stage->label() }}</button>
-                            </form>
+                        @else
+                            <a class="btn-secondary" href="{{ route('stages.gate', $stage) }}">{{ $stage->stage->label() }} gate →</a>
                         @endif
                     @endforeach
                 </div>
