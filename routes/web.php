@@ -28,7 +28,8 @@ Route::get('/', function () {
 // Authentication (session-based).
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
-    Route::post('/login', [LoginController::class, 'login']);
+    // Coarse IP backstop; LoginController adds a finer per-email+IP lockout.
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
 });
 Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
 
@@ -104,15 +105,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return redirect()->route('portfolio.dashboard');
     })->name('dashboard');
 
-    // Module 1: AI/RAG Chat
+    // Module 1: AI/RAG Chat — throttle the LLM-backed POST (cost + abuse guard).
     Route::prefix('chat')->group(function () {
         Route::get('/', [ChatController::class, 'index'])->name('chat.index');
-        Route::post('/message', [ChatController::class, 'send'])->name('chat.send');
+        Route::post('/message', [ChatController::class, 'send'])->middleware('throttle:30,1')->name('chat.send');
     });
 
     // Portfolio-wide AI chat
     Route::get('/portfolio/chat', [PortfolioChatController::class, 'index'])->name('portfolio.chat');
-    Route::post('/portfolio/chat/ask', [PortfolioChatController::class, 'ask'])->name('portfolio.chat.ask');
+    Route::post('/portfolio/chat/ask', [PortfolioChatController::class, 'ask'])->middleware('throttle:30,1')->name('portfolio.chat.ask');
 
     // Module 6: Feedback
     Route::prefix('feedback')->group(function () {

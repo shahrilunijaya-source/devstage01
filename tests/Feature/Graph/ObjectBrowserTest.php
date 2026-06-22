@@ -92,4 +92,17 @@ class ObjectBrowserTest extends TestCase
 
         $this->actingAs($outsider)->get(route('objects.index', $project))->assertForbidden();
     }
+
+    public function test_wildcard_search_term_is_neutralised(): void
+    {
+        [$project, $pm] = $this->boundProject();
+        $a = $this->object($project, ObjectType::FINDING, 'Payroll cadence');
+        $b = $this->object($project, ObjectType::FINDING, 'Leave policy');
+
+        // A bare '%' must match literally (nothing), not act as a match-all wildcard.
+        $this->actingAs($pm)->get(route('objects.index', [$project, 'q' => '%']))
+            ->assertOk()
+            ->assertDontSee($a->ref)
+            ->assertDontSee($b->ref);
+    }
 }

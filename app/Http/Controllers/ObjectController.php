@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Enums\ObjectStatus;
 use App\Enums\ObjectType;
 use App\Models\Graph\EngObject;
+use App\Models\Graph\TraceRelationship;
 use App\Models\Project;
 use App\Services\AccessControl\PolicyDecisionPoint;
 use App\Services\Graph\TraceService;
@@ -14,6 +15,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Single canonical-object inspection + traceability (PRD §12.3). Shows the
@@ -25,6 +27,15 @@ class ObjectController extends Controller
     public function __construct(private readonly PolicyDecisionPoint $pdp) {}
 
     private const PER_PAGE = 25;
+
+    /** Max search-term length accepted before truncation. */
+    private const MAX_QUERY = 100;
+
+    /** Escape LIKE metacharacters so the term matches literally. */
+    private function escapeLike(string $term): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term);
+    }
 
     /** Filterable, ACL-scoped browser over a project's canonical objects (PRD §12). */
     public function index(Request $request, Project $project): View
@@ -39,13 +50,17 @@ class ObjectController extends Controller
             'q' => trim((string) $request->query('q', '')),
         ];
 
+        // Cap length and neutralise LIKE wildcards so a search term can't force a
+        // pathological leading-`%` scan or inject `%`/`_` matching semantics.
+        $needle = $this->escapeLike(Str::limit($filters['q'], self::MAX_QUERY, ''));
+
         $matches = EngObject::forProject($project->id)
             ->when($filters['type'], fn ($query, $type) => $query->where('type', $type))
             ->when($filters['status'], fn ($query, $status) => $query->where('status', $status))
-            ->when($filters['q'], fn ($query, $term) => $query->where(
-                fn ($q) => $q->where('ref', 'like', "%{$term}%")
-                    ->orWhere('title', 'like', "%{$term}%")
-                    ->orWhere('body', 'like', "%{$term}%"),
+            ->when($filters['q'] !== '', fn ($query) => $query->where(
+                fn ($q) => $q->where('ref', 'like', "%{$needle}%")
+                    ->orWhere('title', 'like', "%{$needle}%")
+                    ->orWhere('body', 'like', "%{$needle}%"),
             ))
             ->orderBy('type')->orderBy('ref')
             ->get()
@@ -102,7 +117,7 @@ class ObjectController extends Controller
      * Map trace edges to display rows {relation, object}, dropping neighbours
      * the viewer may not see (deny-by-default extends to the graph walk).
      *
-     * @param  Collection<int, \App\Models\Graph\TraceRelationship>  $edges
+     * @param  Collection<int, TraceRelationship>  $edges
      * @return Collection<int, array{relation:string, object:EngObject}>
      */
     private function neighbours(Collection $edges, string $rel, $user): Collection
