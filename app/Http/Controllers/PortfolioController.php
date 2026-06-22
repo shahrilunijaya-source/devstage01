@@ -14,6 +14,7 @@ use App\Models\Portfolio\Tenant;
 use App\Models\Project;
 use App\Services\AccessControl\PolicyDecisionPoint;
 use App\Services\Graph\TraceService;
+use App\Services\Portfolio\LifecycleSummaryService;
 use App\Services\Portfolio\PortfolioDashboardService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -90,7 +91,7 @@ class PortfolioController extends Controller
         return view('portfolio.blocked', ['blocked' => $blocked]);
     }
 
-    public function show(Request $request, Project $project, TraceService $trace): View
+    public function show(Request $request, Project $project, TraceService $trace, LifecycleSummaryService $lifecycle): View
     {
         abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');
 
@@ -104,6 +105,7 @@ class PortfolioController extends Controller
         return view('portfolio.show', [
             'project' => $project,
             'chain' => $chain,
+            'lifecycle' => $lifecycle->summarize($project),
             'objectCount' => EngObject::where('project_id', $project->id)->count(),
             'canEdit' => $this->pdp->can($request->user(), 'edit', $project)->permitted,
             'canBaseline' => $this->pdp->can($request->user(), 'baseline', $project)->permitted,

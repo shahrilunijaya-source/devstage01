@@ -34,6 +34,37 @@
         </div>
     </div>
 
+    <div class="card card-pad mt-6">
+        <div class="flex items-center justify-between mb-3">
+            <span class="section-title">Requirement lifecycle</span>
+            <span class="text-[12px] text-gray-400">{{ $lifecycle['requirements'] }} requirements · evidence → design → prototype → verification → traceability</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            @php
+                $stages = [
+                    ['Designed', $lifecycle['designed_pct'], 'design.index'],
+                    ['Prototyped', $lifecycle['prototyped_pct'], 'prototype.index'],
+                    ['Verified', $lifecycle['verified_pct'], 'verification.index'],
+                    ['Traced', $lifecycle['traced_pct'], 'rtm.index'],
+                ];
+            @endphp
+            @foreach ($stages as [$label, $pct, $route])
+                <a href="{{ route($route, $project) }}" class="stat-card hover:border-teal transition-colors">
+                    <div class="stat-value">{{ $pct }}%</div>
+                    <div class="stat-label">{{ $label }}</div>
+                </a>
+            @endforeach
+            <a href="{{ route('verification.index', $project) }}" class="stat-card hover:border-teal transition-colors">
+                <div class="stat-value {{ $lifecycle['open_defects'] > 0 ? 'text-red-600' : '' }}">{{ $lifecycle['open_defects'] }}</div>
+                <div class="stat-label">Open defects</div>
+            </a>
+            <a href="{{ route('issues.index', $project) }}" class="stat-card hover:border-teal transition-colors">
+                <div class="stat-value {{ $lifecycle['open_issues'] > 0 ? 'text-red-600' : '' }}">{{ $lifecycle['open_issues'] }}</div>
+                <div class="stat-label">Open issues</div>
+            </a>
+        </div>
+    </div>
+
     <h2 class="section-title mt-8 mb-3">Modules &amp; lifecycle stages</h2>
     @forelse ($project->modules as $module)
         <div class="card card-pad mb-4">
