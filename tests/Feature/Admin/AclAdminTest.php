@@ -101,4 +101,26 @@ class AclAdminTest extends TestCase
             ->assertSee('granted by role')
             ->assertDontSee('no active binding for scope');
     }
+
+    public function test_audit_csv_export_streams_filtered_rows(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $stranger = User::factory()->create(['role' => 'regular']);
+        $project = $this->project();
+        $this->pdp()->can($stranger, 'view', $project); // a deny audit row
+
+        $response = $this->actingAs($admin)->get(route('admin.acl.audit.csv', ['decision' => 'deny']));
+        $response->assertOk();
+        $this->assertStringContainsString('text/csv', (string) $response->headers->get('content-type'));
+
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('Decision', $csv);
+        $this->assertStringContainsString('no active binding for scope', $csv);
+    }
+
+    public function test_audit_csv_denied_for_non_admin(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'regular']))
+            ->get(route('admin.acl.audit.csv'))->assertForbidden();
+    }
 }

@@ -97,6 +97,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/admin/acl/delegate', [AclController::class, 'delegate'])->name('admin.acl.delegate');
         Route::post('/admin/acl/delegations/{delegation}/revoke', [AclController::class, 'revokeDelegation'])->name('admin.acl.delegation.revoke');
         Route::get('/admin/acl/audit', [AclController::class, 'audit'])->name('admin.acl.audit');
+        Route::get('/admin/acl/audit.csv', [AclController::class, 'auditCsv'])->name('admin.acl.audit.csv');
 
         // Platform settings (API keys + feature flags).
         Route::get('/admin/settings', [SettingsController::class, 'index'])->name('admin.settings.index');

@@ -15,9 +15,11 @@ use App\Models\User;
 use App\Services\AccessControl\DelegationService;
 use App\Services\AccessControl\Exceptions\DelegationException;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Administration of the Access Control module (PRD §6.4 ACL-12). Admin-only:
@@ -137,6 +139,46 @@ class AclController extends Controller
     {
         $this->authorizeAdmin($request);
 
+        [$filters, $query] = $this->auditQuery($request);
+
+        return view('admin.acl.audit', [
+            'entries' => $query->with('user')->latest()->paginate(50)->withQueryString(),
+            'filters' => $filters,
+            'actions' => AccessAudit::query()->distinct()->orderBy('action')->pluck('action')->filter()->values(),
+            'peps' => AccessAudit::query()->distinct()->orderBy('pep')->pluck('pep')->filter()->values(),
+            'users' => User::orderBy('name')->get(['id', 'name']),
+        ]);
+    }
+
+    /** Export the filtered access audit as CSV (compliance evidence, PRD §6.4). */
+    public function auditCsv(Request $request): StreamedResponse
+    {
+        $this->authorizeAdmin($request);
+
+        [, $query] = $this->auditQuery($request);
+        $rows = $query->with('user')->latest()->limit(10000)->get();
+
+        return response()->streamDownload(function () use ($rows): void {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['When', 'User', 'Decision', 'Action', 'Object type', 'Object id', 'Scope', 'Reason', 'IP', 'PEP']);
+            foreach ($rows as $e) {
+                fputcsv($out, [
+                    optional($e->created_at)->toDateTimeString(), $e->user?->name ?? '#'.$e->user_id,
+                    $e->decision, $e->action, $e->object_type, $e->object_id, $e->scope_type,
+                    $e->reason, $e->ip, $e->pep,
+                ]);
+            }
+            fclose($out);
+        }, 'access-audit.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    /**
+     * Shared filter parsing + query builder for the audit list and its export.
+     *
+     * @return array{0: array<string, mixed>, 1: Builder}
+     */
+    private function auditQuery(Request $request): array
+    {
         $filters = [
             'decision' => $request->query('decision'),
             'action' => $request->query('action'),
@@ -147,7 +189,7 @@ class AclController extends Controller
             'to' => $request->query('to'),
         ];
 
-        $entries = AccessAudit::with('user')
+        $query = AccessAudit::query()
             ->when($filters['decision'], fn ($q, $v) => $q->where('decision', $v))
             ->when($filters['action'], fn ($q, $v) => $q->where('action', $v))
             ->when($filters['user_id'], fn ($q, $v) => $q->where('user_id', $v))
@@ -156,18 +198,9 @@ class AclController extends Controller
                 ->where('reason', 'like', '%'.$filters['q'].'%')
                 ->orWhere('object_type', 'like', '%'.$filters['q'].'%')))
             ->when($filters['from'], fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
-            ->when($filters['to'], fn ($q, $v) => $q->whereDate('created_at', '<=', $v))
-            ->latest()
-            ->paginate(50)
-            ->withQueryString();
+            ->when($filters['to'], fn ($q, $v) => $q->whereDate('created_at', '<=', $v));
 
-        return view('admin.acl.audit', [
-            'entries' => $entries,
-            'filters' => $filters,
-            'actions' => AccessAudit::query()->distinct()->orderBy('action')->pluck('action')->filter()->values(),
-            'peps' => AccessAudit::query()->distinct()->orderBy('pep')->pluck('pep')->filter()->values(),
-            'users' => User::orderBy('name')->get(['id', 'name']),
-        ]);
+        return [$filters, $query];
     }
 
     private function authorizeAdmin(Request $request): void

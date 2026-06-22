@@ -7,6 +7,7 @@
             <h1 class="text-xl font-bold text-gray-900 tracking-tight">Access audit</h1>
             <p class="text-[13px] text-gray-500 mt-0.5">Immutable record of access decisions (PRD §6.4). {{ $entries->total() }} matching.</p>
         </div>
+        <a class="btn-secondary" href="{{ route('admin.acl.audit.csv', request()->query()) }}">Export CSV</a>
     </div>
 
     <form method="GET" action="{{ route('admin.acl.audit') }}" class="card card-pad mb-5">
