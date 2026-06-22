@@ -10,6 +10,7 @@ use App\Models\Graph\EngObject;
 use App\Models\Portfolio\Session;
 use App\Services\AccessControl\PolicyDecisionPoint;
 use App\Services\Graph\ObjectGraphService;
+use App\Services\Knowledge\EvidenceIndexer;
 use App\Services\Knowledge\KnowledgeResolver;
 use App\Services\Session\ConflictDetectionService;
 use App\Services\Session\Exceptions\SessionEngineException;
@@ -52,7 +53,7 @@ class SessionController extends Controller
      * object (PRD §8 — "evidence enters as immutable source"). Accepted only in
      * the pre-analysis phase, before the AI drafts hypotheses from it.
      */
-    public function addEvidence(Request $request, Session $session, ObjectGraphService $graph): RedirectResponse
+    public function addEvidence(Request $request, Session $session, ObjectGraphService $graph, EvidenceIndexer $indexer): RedirectResponse
     {
         $this->authorizeEdit($request, $session);
 
@@ -108,6 +109,14 @@ class SessionController extends Controller
                 'change_summary' => 'evidence captured',
             ],
         );
+
+        // Make the evidence retrievable across the project corpus. Best-effort —
+        // a missing key or embedding failure must never block the capture itself.
+        try {
+            $indexer->index($object);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return $this->back($session, "Evidence {$object->ref} captured.");
     }
