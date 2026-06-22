@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ChangeRequestController;
+use App\Http\Controllers\DesignController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\InboxController;
@@ -89,6 +90,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/portfolio/test-cases/{case}/results', [VerificationController::class, 'recordResult'])->name('verification.results.store');
     Route::post('/portfolio/test-cases/{case}/defects', [VerificationController::class, 'raiseDefect'])->name('verification.defects.store');
     Route::post('/portfolio/defects/{defect}/resolve', [VerificationController::class, 'resolveDefect'])->name('verification.defects.resolve');
+
+    // Design register (PRD §12 — SDS/SLD/DBD).
+    Route::get('/portfolio/projects/{project}/design', [DesignController::class, 'index'])->name('design.index');
+    Route::post('/portfolio/objects/{requirement}/design', [DesignController::class, 'store'])->name('design.store');
 
     // Requirements Traceability Matrix (PRD §17).
     Route::get('/portfolio/projects/{project}/rtm', [RtmController::class, 'index'])->name('rtm.index');

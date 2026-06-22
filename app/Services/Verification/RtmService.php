@@ -55,11 +55,15 @@ class RtmService
             ->keyBy(fn (array $row): int => (int) $row['requirement']->id);
 
         $rows = $requirements->map(function (EngObject $req) use ($verification): array {
-            $support = collect($this->trace->reverseTrace($req))
+            // Both support (evidence/findings) and design (which SATISFIES the
+            // requirement) point INTO the requirement, so both are reverse reach.
+            $upstream = collect($this->trace->reverseTrace($req));
+
+            $support = $upstream
                 ->filter(fn (EngObject $o): bool => in_array($o->type, self::SUPPORT_TYPES, true))
                 ->pluck('ref')->values();
 
-            $design = collect($this->trace->forwardTrace($req))
+            $design = $upstream
                 ->filter(fn (EngObject $o): bool => in_array($o->type, self::DESIGN_TYPES, true))
                 ->pluck('ref')->values();
 

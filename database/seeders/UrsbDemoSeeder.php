@@ -12,6 +12,7 @@ use App\Models\Portfolio\Session;
 use App\Models\Portfolio\Tenant;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\Design\DesignService;
 use App\Services\Graph\BaselineService;
 use App\Services\Graph\ObjectGraphService;
 use App\Services\Knowledge\KnowledgeResolver;
@@ -198,6 +199,16 @@ class UrsbDemoSeeder extends Seeder
             ->orderBy('id')->first();
 
         if ($requirement !== null) {
+            // Design that satisfies the requirement, so the design register and
+            // the traceability matrix's design column have live content.
+            app(DesignService::class)->addDesign(
+                $requirement,
+                'design_component',
+                'Payroll disbursement scheduler',
+                'A scheduled job that releases salary payments to land on or before the 25th.',
+                $approver,
+            );
+
             $verification = app(VerificationService::class);
             $case = $verification->addTestCase(
                 $requirement,
