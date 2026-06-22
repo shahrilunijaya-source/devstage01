@@ -12,6 +12,7 @@ use App\Services\Rag\Chunker;
 use App\Services\Rag\VoyageClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpWord\IOFactory;
 use Smalot\PdfParser\Parser;
 
 /**
@@ -99,7 +100,8 @@ class EvidenceIndexer
     /**
      * Pull indexable text from an evidence object: its body for pasted evidence,
      * the stored file's contents for a readable text type, or extracted text for
-     * a PDF (when a parser is available). Other binary formats are skipped.
+     * a PDF / Word document (when the parser is available). Other binary formats
+     * are skipped.
      */
     private function extractText(EngObject $evidence): string
     {
@@ -127,11 +129,68 @@ class EvidenceIndexer
 
                 return $bytes === null ? '' : trim((new Parser)->parseContent($bytes)->getText());
             }
+
+            if ($this->isWordMime($mime) && class_exists(IOFactory::class)) {
+                return $this->extractWord($path);
+            }
         } catch (\Throwable) {
             return ''; // unreadable/corrupt file → skip indexing, never break capture
         }
 
         return '';
+    }
+
+    private function isWordMime(string $mime): bool
+    {
+        return in_array($mime, [
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/msword',
+        ], true);
+    }
+
+    /** Extract visible text from a .docx via PhpWord (loads from a temp file). */
+    private function extractWord(string $path): string
+    {
+        $bytes = Storage::get($path);
+        if ($bytes === null) {
+            return '';
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'evd');
+        file_put_contents($tmp, $bytes);
+
+        try {
+            $doc = IOFactory::load($tmp, 'Word2007');
+            $out = [];
+            foreach ($doc->getSections() as $section) {
+                $this->collectWordText($section->getElements(), $out);
+            }
+
+            return trim(implode(' ', $out));
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
+    /**
+     * Recursively collect text from PhpWord elements (Text + nested TextRun, etc).
+     *
+     * @param  array<int, object>  $elements
+     * @param  array<int, string>  $out
+     */
+    private function collectWordText(array $elements, array &$out): void
+    {
+        foreach ($elements as $el) {
+            if (method_exists($el, 'getText')) {
+                $text = $el->getText();
+                if (is_string($text) && $text !== '') {
+                    $out[] = $text;
+                }
+            }
+            if (method_exists($el, 'getElements')) {
+                $this->collectWordText($el->getElements(), $out);
+            }
+        }
     }
 
     private function isTextMime(string $mime): bool

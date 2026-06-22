@@ -22,6 +22,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\PhpWord;
 use Tests\TestCase;
 
 class EvidenceRagIndexTest extends TestCase
@@ -118,6 +120,37 @@ class EvidenceRagIndexTest extends TestCase
         $chunk = RagChunk::where('source_type', 'evidence')->where('source_id', $evidence->id)->first();
         $this->assertNotNull($chunk);
         $this->assertStringContainsString('Payroll', $chunk->chunk_text);
+    }
+
+    public function test_docx_evidence_text_is_extracted_and_indexed(): void
+    {
+        $this->fakeVoyage();
+        Storage::fake('local');
+        [$session, $project] = $this->makeSession();
+
+        // Build a real .docx with known text via PhpWord.
+        $word = new PhpWord;
+        $section = $word->addSection();
+        $section->addText('Vendor onboarding may slip the go-live date.');
+        $tmp = tempnam(sys_get_temp_dir(), 'doc').'.docx';
+        IOFactory::createWriter($word, 'Word2007')->save($tmp);
+        Storage::put('evidence/spec.docx', file_get_contents($tmp));
+        @unlink($tmp);
+
+        $evidence = app(ObjectGraphService::class)->create(
+            ObjectType::EVIDENCE, $project->tenant_id, $project->id, 'Spec DOCX',
+            ['session_id' => $session->id, 'attributes' => [
+                'mime' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'path' => 'evidence/spec.docx',
+            ]],
+        );
+
+        $chunks = app(EvidenceIndexer::class)->index($evidence);
+
+        $this->assertGreaterThan(0, $chunks);
+        $chunk = RagChunk::where('source_type', 'evidence')->where('source_id', $evidence->id)->first();
+        $this->assertNotNull($chunk);
+        $this->assertStringContainsString('Vendor onboarding', $chunk->chunk_text);
     }
 
     public function test_reindex_replaces_prior_chunks_idempotently(): void
