@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Acl\ScopeBinding;
 use App\Models\Graph\EngObject;
 use App\Models\Graph\TraceRelationship;
 use App\Models\Portfolio\Module;
@@ -55,6 +56,27 @@ class PortfolioController extends Controller
             'cards' => $cards,
             'summary' => $dashboard->summarize($cards),
             'columns' => $dashboard->lifecycleColumns(),
+        ]);
+    }
+
+    /** Read-only project team: who holds an active ACL binding on this project. */
+    public function team(Request $request, Project $project): View
+    {
+        abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');
+
+        $bindings = ScopeBinding::active()
+            ->where(function ($q) use ($project): void {
+                $q->where(fn ($w) => $w->where('scope_type', 'project')->where('scope_id', $project->id))
+                    ->orWhere(fn ($w) => $w->where('scope_type', 'tenant')->where('tenant_id', $project->tenant_id));
+            })
+            ->with('user:id,name,email', 'role:id,key,name')
+            ->get()
+            ->sortBy('user.name')
+            ->values();
+
+        return view('portfolio.team', [
+            'project' => $project,
+            'bindings' => $bindings,
         ]);
     }
 

@@ -44,6 +44,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/portfolio/projects/create', [PortfolioController::class, 'createProject'])->name('portfolio.projects.create');
     Route::post('/portfolio/projects', [PortfolioController::class, 'storeProject'])->name('portfolio.projects.store');
     Route::get('/portfolio/projects/{project}', [PortfolioController::class, 'show'])->name('portfolio.show');
+    Route::get('/portfolio/projects/{project}/team', [PortfolioController::class, 'team'])->name('portfolio.team');
     Route::post('/portfolio/projects/{project}/modules', [PortfolioController::class, 'storeModule'])->name('portfolio.modules.store');
     Route::post('/portfolio/stages/{stage}/sessions', [PortfolioController::class, 'storeSession'])->name('portfolio.sessions.store');
 

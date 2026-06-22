@@ -25,6 +25,7 @@
             <a class="btn-secondary" href="{{ route('metrics.decisions', $project) }}">Decisions</a>
             <a class="btn-secondary" href="{{ route('metrics.risks', $project) }}">Risks</a>
             <a class="btn-secondary" href="{{ route('changes.index', $project) }}">Change requests</a>
+            <a class="btn-secondary" href="{{ route('portfolio.team', $project) }}">Team</a>
         </div>
     </div>
 
