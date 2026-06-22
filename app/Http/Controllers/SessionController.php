@@ -11,6 +11,7 @@ use App\Models\Portfolio\Session;
 use App\Services\AccessControl\PolicyDecisionPoint;
 use App\Services\Graph\ObjectGraphService;
 use App\Services\Knowledge\KnowledgeResolver;
+use App\Services\Session\ConflictDetectionService;
 use App\Services\Session\Exceptions\SessionEngineException;
 use App\Services\Session\SessionEngineService;
 use Illuminate\Contracts\View\View;
@@ -127,6 +128,17 @@ class SessionController extends Controller
         $this->authorizeEdit($request, $session);
 
         return $this->guard($session, fn () => $this->engine->startSession($session), 'Session started.');
+    }
+
+    public function scanConflicts(Request $request, Session $session, ConflictDetectionService $detector): RedirectResponse
+    {
+        $this->authorizeEdit($request, $session);
+
+        $count = $detector->scan($session, $request->user()->id);
+
+        return $this->back($session, $count === 0
+            ? 'Conflict scan complete — no conflicting requirements found.'
+            : "Conflict scan flagged {$count} conflict group(s). Resolve the flagged items before approval.");
     }
 
     public function consolidate(Request $request, Session $session): RedirectResponse

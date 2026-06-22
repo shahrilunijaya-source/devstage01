@@ -47,9 +47,15 @@
             @elseif ($session->phase === 'in_session')
                 <p class="text-[13px] text-gray-500 mb-3">Session in progress — capture client responses on each item below.</p>
                 @if ($canEdit)
-                    <form method="POST" action="{{ route('sessions.consolidate', $session) }}">@csrf
-                        <button class="btn-pine" type="submit">Consolidate &amp; close session</button>
-                    </form>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <form method="POST" action="{{ route('sessions.scan-conflicts', $session) }}">@csrf
+                            <button class="btn-secondary" type="submit">Scan for conflicts</button>
+                        </form>
+                        <form method="POST" action="{{ route('sessions.consolidate', $session) }}">@csrf
+                            <button class="btn-pine" type="submit">Consolidate &amp; close session</button>
+                        </form>
+                    </div>
+                    <p class="text-[12px] text-gray-400 mt-2">Conflict scan flags duplicate-intent requirements (PRD §9); flagged items block approval until reconciled.</p>
                 @endif
             @elseif ($session->phase === 'post_session')
                 @if ($canApprove)

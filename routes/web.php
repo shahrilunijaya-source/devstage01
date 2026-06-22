@@ -49,6 +49,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/portfolio/sessions/{session}/firewall', [SessionController::class, 'firewall'])->name('sessions.firewall');
     Route::post('/portfolio/sessions/{session}/start', [SessionController::class, 'start'])->name('sessions.start');
     Route::post('/portfolio/sessions/{session}/objects/{object}/capture', [SessionController::class, 'capture'])->name('sessions.capture');
+    Route::post('/portfolio/sessions/{session}/scan-conflicts', [SessionController::class, 'scanConflicts'])->name('sessions.scan-conflicts');
     Route::post('/portfolio/sessions/{session}/consolidate', [SessionController::class, 'consolidate'])->name('sessions.consolidate');
     Route::post('/portfolio/sessions/{session}/approve', [SessionController::class, 'approve'])->name('sessions.approve');
 
