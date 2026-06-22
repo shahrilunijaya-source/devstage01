@@ -134,11 +134,24 @@
                             <td class="text-gray-500">{{ $obj->confidence?->value ?? '—' }}</td>
                             <td class="text-gray-500">{{ $obj->impact ?? '—' }}</td>
                             @if ($session->phase === 'in_session' && $canEdit)
-                                <td>
-                                    <form method="POST" action="{{ route('sessions.capture', [$session, $obj]) }}" class="flex flex-wrap gap-1">@csrf
-                                        @foreach (['confirm', 'correct', 'complete', 'decide'] as $d)
-                                            <button class="btn-secondary !py-1 !px-2.5 !text-[12px]" name="decision" value="{{ $d }}" type="submit">{{ ucfirst($d) }}</button>
-                                        @endforeach
+                                <td x-data="{ edit: false }" class="min-w-[260px]">
+                                    <div x-show="!edit" class="flex flex-wrap gap-1">
+                                        <form method="POST" action="{{ route('sessions.capture', [$session, $obj]) }}">@csrf
+                                            <button class="btn-secondary !py-1 !px-2.5 !text-[12px]" name="decision" value="confirm" type="submit">Confirm</button>
+                                        </form>
+                                        <button class="btn-secondary !py-1 !px-2.5 !text-[12px]" type="button" @click="edit = true">Revise…</button>
+                                        <form method="POST" action="{{ route('sessions.capture', [$session, $obj]) }}">@csrf
+                                            <button class="btn-secondary !py-1 !px-2.5 !text-[12px]" name="decision" value="decide" type="submit">Decide</button>
+                                        </form>
+                                    </div>
+                                    <form x-show="edit" x-cloak method="POST" action="{{ route('sessions.capture', [$session, $obj]) }}" class="space-y-2">@csrf
+                                        <input class="form-input !py-1.5 !text-[13px]" name="title" value="{{ $obj->title }}" maxlength="255" placeholder="Revised title">
+                                        <textarea class="form-textarea !py-1.5 !text-[13px]" name="body" rows="2" placeholder="Revised text">{{ $obj->body }}</textarea>
+                                        <div class="flex flex-wrap gap-1">
+                                            <button class="btn-primary !py-1 !px-2.5 !text-[12px]" name="decision" value="correct" type="submit">Save correction</button>
+                                            <button class="btn-secondary !py-1 !px-2.5 !text-[12px]" name="decision" value="complete" type="submit">Mark complete</button>
+                                            <button class="btn-secondary !py-1 !px-2.5 !text-[12px]" type="button" @click="edit = false">Cancel</button>
+                                        </div>
                                     </form>
                                 </td>
                             @endif

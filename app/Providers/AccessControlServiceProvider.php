@@ -27,6 +27,10 @@ class AccessControlServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Coarse role gate used by `can:admin` route middleware. Gate::before
+        // abstains on 'admin' (not GATE_OWNED), so this definition decides it.
+        Gate::define('admin', fn (User $user) => $user->isAdmin());
+
         Gate::before(function (User $user, string $ability, array $arguments = []) {
             if (! in_array($ability, self::GATE_OWNED, true)) {
                 return null; // abstain — existing policies decide

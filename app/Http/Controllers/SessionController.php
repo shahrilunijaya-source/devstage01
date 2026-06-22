@@ -161,10 +161,20 @@ class SessionController extends Controller
         $this->authorizeEdit($request, $session);
         abort_unless((int) $object->session_id === (int) $session->id, 404);
 
-        $decision = $request->validate(['decision' => ['required', 'in:confirm,correct,complete,decide']])['decision'];
+        $data = $request->validate([
+            'decision' => ['required', 'in:confirm,correct,complete,decide'],
+            'title' => ['nullable', 'string', 'max:255'],
+            'body' => ['nullable', 'string'],
+        ]);
 
-        return $this->guard($session, fn () => $this->engine->capture($object, $decision, $request->user()),
-            "Item {$object->ref}: {$decision} recorded.");
+        // Correct/Complete carry the human's revised text; confirm/decide ignore it.
+        $opts = array_filter([
+            'title' => $data['title'] ?? null,
+            'body' => $data['body'] ?? null,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        return $this->guard($session, fn () => $this->engine->capture($object, $data['decision'], $request->user(), $opts),
+            "Item {$object->ref}: {$data['decision']} recorded.");
     }
 
     private function guard(Session $session, callable $action, string $okMessage): RedirectResponse

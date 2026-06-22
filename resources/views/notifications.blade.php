@@ -2,7 +2,7 @@
 @section('page-title', 'Notifications')
 
 @section('topbar-actions')
-    <form method="POST" action="{{ route('notifications.read-all') }}">
+    <form method="POST" action="{{ route('notifications.mark-all-read') }}">
         @csrf
         <button type="submit" class="btn-secondary text-[12px]">Mark all read</button>
     </form>
