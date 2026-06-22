@@ -38,6 +38,9 @@
                ])>
                 <svg class="shrink-0 opacity-80" style="width:18px;height:18px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $link['icon'] }}"/></svg>
                 <span class="label">{{ $link['label'] }}</span>
+                @if ($link['route'] === 'inbox' && ($inboxCount ?? 0) > 0)
+                    <span class="label ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-flag text-pine text-[10px] font-bold">{{ $inboxCount > 99 ? '99+' : $inboxCount }}</span>
+                @endif
             </a>
         @endforeach
 

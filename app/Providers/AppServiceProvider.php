@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\InboxService;
 use App\Services\MonthlyReportService;
 use App\Services\NotificationService;
 use App\Services\ProjectInsightService;
@@ -12,6 +13,7 @@ use App\Services\Session\Analysis\DeterministicEvidenceAnalyst;
 use App\Services\Session\Analysis\EvidenceAnalyst;
 use App\Services\Session\Analysis\LlmEvidenceAnalyst;
 use App\Services\WorkloadService;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -53,6 +55,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Sidebar shows the count of items waiting on the current user.
+        View::composer('partials.sidebar', function ($view): void {
+            $user = auth()->user();
+            $view->with('inboxCount', $user ? app(InboxService::class)->forUser($user)['total'] : 0);
+        });
     }
 }
