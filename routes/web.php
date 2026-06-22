@@ -16,6 +16,7 @@ use App\Http\Controllers\PortfolioChatController;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\Project\CalendarController;
 use App\Http\Controllers\Project\ChatController;
+use App\Http\Controllers\ProjectKnowledgeController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StageController;
@@ -67,6 +68,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/portfolio/projects/{project}/metrics', [MetricsController::class, 'show'])->name('metrics.show');
     Route::get('/portfolio/projects/{project}/coverage', [MetricsController::class, 'coverage'])->name('metrics.coverage');
     Route::get('/portfolio/projects/{project}/knowledge', [KnowledgeController::class, 'show'])->name('knowledge.show');
+    Route::get('/portfolio/projects/{project}/insights', [ProjectKnowledgeController::class, 'index'])->name('project-knowledge.index');
+    Route::post('/portfolio/projects/{project}/insights', [ProjectKnowledgeController::class, 'store'])->name('project-knowledge.store');
     Route::get('/portfolio/projects/{project}/activity', [MetricsController::class, 'activity'])->name('metrics.activity');
     Route::get('/portfolio/projects/{project}/decisions', [MetricsController::class, 'decisions'])->name('metrics.decisions');
     Route::get('/portfolio/projects/{project}/decisions.csv', [MetricsController::class, 'decisionsCsv'])->name('metrics.decisions.csv');
