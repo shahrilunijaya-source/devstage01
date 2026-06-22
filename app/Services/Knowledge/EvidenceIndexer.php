@@ -133,8 +133,12 @@ class EvidenceIndexer
             if ($this->isWordMime($mime) && class_exists(IOFactory::class)) {
                 return $this->extractWord($path);
             }
-        } catch (\Throwable) {
-            return ''; // unreadable/corrupt file → skip indexing, never break capture
+        } catch (\Throwable $e) {
+            // unreadable/corrupt file or missing extension → skip indexing, never
+            // break capture, but record why so it isn't an invisible failure.
+            report($e);
+
+            return '';
         }
 
         return '';
@@ -157,6 +161,9 @@ class EvidenceIndexer
         }
 
         $tmp = tempnam(sys_get_temp_dir(), 'evd');
+        if ($tmp === false) {
+            return '';
+        }
         file_put_contents($tmp, $bytes);
 
         try {

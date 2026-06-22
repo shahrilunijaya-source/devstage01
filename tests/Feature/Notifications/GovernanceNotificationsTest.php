@@ -57,6 +57,22 @@ class GovernanceNotificationsTest extends TestCase
         $this->assertSame(0, Notification::where('user_id', $outsider->id)->count(), 'unbound not notified');
     }
 
+    public function test_notify_reaches_module_scoped_bindings(): void
+    {
+        $project = Project::create(['tenant_id' => Tenant::default()->id, 'name' => 'P', 'code' => 'P', 'status' => 'active']);
+        $module = Module::create(['project_id' => $project->id, 'name' => 'M', 'code' => 'M']);
+
+        $moduleUser = User::factory()->create(['role' => 'regular']);
+        ScopeBinding::create([
+            'user_id' => $moduleUser->id, 'role_id' => Role::where('key', 'project_pm')->whereNull('tenant_id')->value('id'),
+            'tenant_id' => $project->tenant_id, 'scope_type' => 'module', 'scope_id' => $module->id,
+        ]);
+
+        app(NotificationService::class)->notifyProjectBindings($project, 'demo', 'Module-scoped user should hear this');
+
+        $this->assertSame(1, Notification::where('user_id', $moduleUser->id)->count());
+    }
+
     public function test_session_approval_notifies_the_team(): void
     {
         $tenant = Tenant::default();

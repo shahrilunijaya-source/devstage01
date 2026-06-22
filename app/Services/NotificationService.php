@@ -5,6 +5,9 @@ namespace App\Services;
 use App\Models\Acl\ScopeBinding;
 use App\Models\ClaimMilestone;
 use App\Models\Notification;
+use App\Models\Portfolio\Module;
+use App\Models\Portfolio\Session;
+use App\Models\Portfolio\Stage;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\WbsItem;
@@ -13,16 +16,24 @@ class NotificationService
 {
     /**
      * Notify every user holding an active ACL binding that covers the project —
-     * project-scoped or tenant-scoped — optionally excluding the actor who
-     * triggered the event. This is the URSB-native audience (scope bindings),
-     * distinct from notifyProjectTeam() which uses the legacy assignment pivot.
+     * at ANY scope level (tenant, project, module, stage, or session within the
+     * project), mirroring the PDP's scope hierarchy so finer-grained grants are
+     * not silently excluded. The actor may be excluded. This is the URSB-native
+     * audience (scope bindings), distinct from notifyProjectTeam() (legacy pivot).
      */
     public function notifyProjectBindings(Project $project, string $type, string $message, ?int $exceptUserId = null): void
     {
+        $moduleIds = Module::where('project_id', $project->id)->pluck('id');
+        $stageIds = Stage::where('project_id', $project->id)->pluck('id');
+        $sessionIds = Session::where('project_id', $project->id)->pluck('id');
+
         $userIds = ScopeBinding::active()
-            ->where(function ($q) use ($project): void {
-                $q->where(fn ($w) => $w->where('scope_type', 'project')->where('scope_id', $project->id))
-                    ->orWhere(fn ($w) => $w->where('scope_type', 'tenant')->where('tenant_id', $project->tenant_id));
+            ->where(function ($q) use ($project, $moduleIds, $stageIds, $sessionIds): void {
+                $q->where(fn ($w) => $w->where('scope_type', 'tenant')->where('tenant_id', $project->tenant_id))
+                    ->orWhere(fn ($w) => $w->where('scope_type', 'project')->where('scope_id', $project->id))
+                    ->orWhere(fn ($w) => $w->where('scope_type', 'module')->whereIn('scope_id', $moduleIds))
+                    ->orWhere(fn ($w) => $w->where('scope_type', 'stage')->whereIn('scope_id', $stageIds))
+                    ->orWhere(fn ($w) => $w->where('scope_type', 'session')->whereIn('scope_id', $sessionIds));
             })
             ->pluck('user_id')
             ->unique()

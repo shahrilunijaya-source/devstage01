@@ -33,13 +33,12 @@ class InboxService
         }
 
         // Capability per project, resolved once (the PDP caches the lookups too).
+        // Batch-load the projects to avoid an N+1 — this runs on every page via
+        // the sidebar inbox-count composer.
+        $projects = Project::whereIn('id', $projectIds)->get()->keyBy('id');
         $canValidate = [];
         $canApprove = [];
-        foreach ($projectIds as $pid) {
-            $project = Project::find($pid);
-            if ($project === null) {
-                continue;
-            }
+        foreach ($projects as $pid => $project) {
             $canValidate[$pid] = $this->pdp->allows($user, 'validate', $project);
             $canApprove[$pid] = $this->pdp->allows($user, 'approve', $project);
         }
