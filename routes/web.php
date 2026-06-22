@@ -58,6 +58,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/portfolio/baselines/{baseline}', [DocumentController::class, 'baseline'])->name('baselines.show');
     Route::get('/portfolio/baselines/{baseline}/pdf', [DocumentController::class, 'baselinePdf'])->name('baselines.pdf');
     Route::get('/portfolio/baselines/{baseline}/deck', [DocumentController::class, 'deck'])->name('baselines.deck');
+    Route::get('/portfolio/baselines/{baseline}/deck.pptx', [DocumentController::class, 'deckPptx'])->name('baselines.deck.pptx');
 
     // Change Management Engine (PRD §9.3.3).
     Route::get('/portfolio/projects/{project}/metrics', [MetricsController::class, 'show'])->name('metrics.show');
@@ -112,6 +113,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('feedback')->group(function () {
         Route::get('/', [FeedbackController::class, 'index'])->name('feedback.index');
         Route::post('/', [FeedbackController::class, 'store'])->name('feedback.store');
+        // Keep the attachment route above /{feedback} so "attachments" isn't bound as an id.
+        Route::get('/attachments/{attachment}', [FeedbackController::class, 'download'])->name('feedback.attachments.download');
         Route::get('/{feedback}', [FeedbackController::class, 'show'])->name('feedback.show');
     });
 
@@ -132,10 +135,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/events', [CalendarController::class, 'events'])->name('calendar.events');
     });
 
-    // Admin: Feedback Triage
-    Route::middleware('can:admin')->prefix('admin/feedback')->group(function () {
+    // Admin: Feedback Triage (admins + directors — enforced per-action by FeedbackItemPolicy).
+    Route::prefix('admin/feedback')->group(function () {
         Route::get('/', [AdminFeedbackController::class, 'index'])->name('admin.feedback.index');
-        Route::patch('/{feedback}/triage', [AdminFeedbackController::class, 'triage'])->name('admin.feedback.triage');
-        Route::post('/{feedback}/comment', [AdminFeedbackController::class, 'comment'])->name('admin.feedback.comment');
+        Route::get('/{feedback}', [AdminFeedbackController::class, 'show'])->name('admin.feedback.show');
+        Route::put('/{feedback}', [AdminFeedbackController::class, 'update'])->name('admin.feedback.update');
+        Route::delete('/{feedback}', [AdminFeedbackController::class, 'destroy'])->name('admin.feedback.destroy');
     });
 });

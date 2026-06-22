@@ -62,21 +62,4 @@
             </a>
         @endif
     </nav>
-
-    <!-- User footer -->
-    <div class="border-t border-white/10 p-3">
-        <div class="flex items-center gap-2.5 px-2 py-1.5" x-show="!navCollapsed" x-cloak>
-            <div class="w-8 h-8 rounded-full bg-teal/20 text-teal flex items-center justify-center text-[12px] font-semibold shrink-0">{{ strtoupper(substr($u->name, 0, 2)) }}</div>
-            <div class="min-w-0">
-                <div class="text-white text-[13px] font-medium truncate">{{ $u->name }}</div>
-                <div class="text-white/40 text-[11px] truncate">{{ $u->system_role ?? $u->role }}</div>
-            </div>
-        </div>
-        <form method="POST" action="{{ route('logout') }}" class="mt-1">@csrf
-            <button type="submit" class="w-full flex items-center gap-3 px-2 py-2 rounded-lg text-white/55 hover:bg-white/5 hover:text-white/90 text-[13px] font-medium transition-colors">
-                <svg class="shrink-0" style="width:18px;height:18px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7M13 16v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
-                <span class="label">Logout</span>
-            </button>
-        </form>
-    </div>
 </aside>

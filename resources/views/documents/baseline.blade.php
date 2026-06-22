@@ -7,6 +7,7 @@
         <h1 class="text-xl font-bold text-gray-900 tracking-tight">{{ $baseline->version_label }}</h1>
         <div class="flex gap-2">
             <a class="btn-secondary" href="{{ route('baselines.deck', $baseline) }}" target="_blank">Review deck</a>
+            <a class="btn-secondary" href="{{ route('baselines.deck.pptx', $baseline) }}">Deck (.pptx)</a>
             <a class="btn-primary" href="{{ route('baselines.pdf', $baseline) }}">Download PDF</a>
         </div>
     </div>

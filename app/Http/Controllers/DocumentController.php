@@ -9,10 +9,12 @@ use App\Models\Graph\ObjectVersion;
 use App\Models\Portfolio\StageBaseline;
 use App\Services\AccessControl\PolicyDecisionPoint;
 use App\Services\Document\DeckBuilder;
+use App\Services\Document\PptxExporter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Generated document views over a baseline (PRD §13, §14): documents are views
@@ -50,6 +52,22 @@ class DocumentController extends Controller
         );
 
         return view('documents.deck', $builder->build($baseline, $request->user()));
+    }
+
+    /** Native PowerPoint export of the review deck (PRD §13). */
+    public function deckPptx(Request $request, StageBaseline $baseline, DeckBuilder $builder, PptxExporter $exporter): BinaryFileResponse
+    {
+        $baseline->load('stage.project');
+
+        abort_unless(
+            $this->pdp->can($request->user(), 'view', $baseline->stage->project)->permitted,
+            403,
+            'Access denied by ACL.',
+        );
+
+        $path = $exporter->export($builder->build($baseline, $request->user()));
+
+        return response()->download($path, "{$baseline->version_label}.pptx")->deleteFileAfterSend();
     }
 
     /** @return array<string, mixed> */
