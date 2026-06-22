@@ -17,6 +17,7 @@ use App\Services\Graph\BaselineService;
 use App\Services\Graph\ObjectGraphService;
 use App\Services\Knowledge\KnowledgeResolver;
 use App\Services\Knowledge\KnowledgeSeeder;
+use App\Services\Prototype\PrototypeService;
 use App\Services\Session\SessionEngineService;
 use App\Services\Verification\VerificationService;
 use Illuminate\Database\Seeder;
@@ -217,6 +218,16 @@ class UrsbDemoSeeder extends Seeder
                 $approver,
             );
             $verification->recordResult($case, 'pass', 'Sample batch disbursed on the 24th.', $approver);
+
+            // A demoed prototype element, so the prototype register shows the
+            // full requirement → design → prototype → verification chain.
+            $element = app(PrototypeService::class)->addElement(
+                $requirement,
+                'Disbursement scheduler prototype',
+                'Clickable demo of the scheduled disbursement job and its calendar.',
+                $approver,
+            );
+            app(PrototypeService::class)->setState($element, 'demoed', $approver);
         }
 
         return $project;

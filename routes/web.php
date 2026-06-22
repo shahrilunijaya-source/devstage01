@@ -18,6 +18,7 @@ use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\Project\CalendarController;
 use App\Http\Controllers\Project\ChatController;
 use App\Http\Controllers\ProjectKnowledgeController;
+use App\Http\Controllers\PrototypeController;
 use App\Http\Controllers\RtmController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SessionController;
@@ -94,6 +95,11 @@ Route::middleware('auth')->group(function () {
     // Design register (PRD §12 — SDS/SLD/DBD).
     Route::get('/portfolio/projects/{project}/design', [DesignController::class, 'index'])->name('design.index');
     Route::post('/portfolio/objects/{requirement}/design', [DesignController::class, 'store'])->name('design.store');
+
+    // Prototype register (PRD §12 — PROTOTYPE stage).
+    Route::get('/portfolio/projects/{project}/prototype', [PrototypeController::class, 'index'])->name('prototype.index');
+    Route::post('/portfolio/objects/{requirement}/prototype', [PrototypeController::class, 'store'])->name('prototype.store');
+    Route::post('/portfolio/prototype-elements/{element}/state', [PrototypeController::class, 'setState'])->name('prototype.state');
 
     // Requirements Traceability Matrix (PRD §17).
     Route::get('/portfolio/projects/{project}/rtm', [RtmController::class, 'index'])->name('rtm.index');

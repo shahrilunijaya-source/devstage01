@@ -22,6 +22,7 @@
             <a class="btn-secondary" href="{{ route('metrics.show', $project) }}">Metrics</a>
             <a class="btn-secondary" href="{{ route('metrics.coverage', $project) }}">Coverage</a>
             <a class="btn-secondary" href="{{ route('design.index', $project) }}">Design</a>
+            <a class="btn-secondary" href="{{ route('prototype.index', $project) }}">Prototype</a>
             <a class="btn-secondary" href="{{ route('verification.index', $project) }}">Verification</a>
             <a class="btn-secondary" href="{{ route('rtm.index', $project) }}">Traceability</a>
             <a class="btn-secondary" href="{{ route('metrics.activity', $project) }}">Activity</a>
