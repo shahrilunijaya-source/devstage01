@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\MetricsController;
 use App\Models\Acl\AccessAudit;
 use App\Models\Acl\Delegation;
 use App\Models\Acl\Role;
@@ -19,6 +20,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -47,7 +49,9 @@ class AclController extends Controller
 
         $data = $request->validate([
             'user_id' => ['required', 'exists:users,id'],
-            'role_id' => ['required', 'exists:acl_roles,id'],
+            // Only global roles are grantable here (matches the console UI); a
+            // tenant-scoped role id cannot be slipped in via a direct POST.
+            'role_id' => ['required', Rule::exists('acl_roles', 'id')->whereNull('tenant_id')],
             'scope_type' => ['required', 'in:tenant,project'],
             'project_id' => ['nullable', 'required_if:scope_type,project', 'exists:projects,id'],
             'tenant_id' => ['nullable', 'required_if:scope_type,tenant', 'exists:tenants,id'],
@@ -159,14 +163,15 @@ class AclController extends Controller
         $rows = $query->with('user')->latest()->limit(10000)->get();
 
         return response()->streamDownload(function () use ($rows): void {
+            $safe = MetricsController::csvSafe(...);
             $out = fopen('php://output', 'w');
             fputcsv($out, ['When', 'User', 'Decision', 'Action', 'Object type', 'Object id', 'Scope', 'Reason', 'IP', 'PEP']);
             foreach ($rows as $e) {
-                fputcsv($out, [
+                fputcsv($out, array_map($safe, [
                     optional($e->created_at)->toDateTimeString(), $e->user?->name ?? '#'.$e->user_id,
                     $e->decision, $e->action, $e->object_type, $e->object_id, $e->scope_type,
                     $e->reason, $e->ip, $e->pep,
-                ]);
+                ]));
             }
             fclose($out);
         }, 'access-audit.csv', ['Content-Type' => 'text/csv']);
@@ -194,9 +199,12 @@ class AclController extends Controller
             ->when($filters['action'], fn ($q, $v) => $q->where('action', $v))
             ->when($filters['user_id'], fn ($q, $v) => $q->where('user_id', $v))
             ->when($filters['pep'], fn ($q, $v) => $q->where('pep', $v))
-            ->when($filters['q'] !== '', fn ($q) => $q->where(fn ($w) => $w
-                ->where('reason', 'like', '%'.$filters['q'].'%')
-                ->orWhere('object_type', 'like', '%'.$filters['q'].'%')))
+            ->when($filters['q'] !== '', function ($q) use ($filters) {
+                $needle = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['q']);
+                $q->where(fn ($w) => $w
+                    ->where('reason', 'like', '%'.$needle.'%')
+                    ->orWhere('object_type', 'like', '%'.$needle.'%'));
+            })
             ->when($filters['from'], fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
             ->when($filters['to'], fn ($q, $v) => $q->whereDate('created_at', '<=', $v));
 

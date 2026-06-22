@@ -50,7 +50,7 @@ class ProjectKnowledgeController extends Controller
         $data = $request->validate([
             'item_type' => ['required', 'in:approved_assumption,lesson_learned'],
             'title' => ['required', 'string', 'max:255'],
-            'body' => ['nullable', 'string'],
+            'body' => ['nullable', 'string', 'max:10000'],
         ]);
 
         $item = ProjectKnowledgeItem::create([

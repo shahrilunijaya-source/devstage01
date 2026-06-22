@@ -153,9 +153,21 @@ class MetricsController extends Controller
             $out = fopen('php://output', 'w');
             fputcsv($out, $headers);
             foreach ($rows as $row) {
-                fputcsv($out, $row);
+                fputcsv($out, array_map([self::class, 'csvSafe'], $row));
             }
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    /**
+     * Neutralise spreadsheet formula injection: a cell beginning with =, +, -, @
+     * (or a control char) is executed as a formula by Excel/Sheets on open. Prefix
+     * such values with a tab so they render as literal text.
+     */
+    public static function csvSafe(mixed $value): string
+    {
+        $value = (string) $value;
+
+        return preg_match('/^[=+\-@\t\r]/', $value) === 1 ? "\t".$value : $value;
     }
 }

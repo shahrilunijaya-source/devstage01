@@ -55,7 +55,10 @@ class InboxService
             ->where('raised_by', '!=', $user->id)
             ->with('project', 'target')
             ->get()
-            ->filter(fn (ChangeRequest $c): bool => $this->pdp->allows($user, 'approve', $c->target ?? $c->project))
+            // Require a live target and approve on it — never fall back to the
+            // broader project scope (that would surface CRs to project-wide
+            // approvers who lack rights on the specific object).
+            ->filter(fn (ChangeRequest $c): bool => $c->target !== null && $this->pdp->allows($user, 'approve', $c->target))
             ->values();
 
         return [

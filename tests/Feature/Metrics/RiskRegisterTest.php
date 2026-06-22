@@ -89,6 +89,18 @@ class RiskRegisterTest extends TestCase
         $this->assertStringContainsString('Exportable risk', $csv); // data row
     }
 
+    public function test_csv_export_neutralises_formula_injection(): void
+    {
+        [$project, $pm] = $this->boundProject();
+        $this->risk($project, '=HYPERLINK("http://evil","x")', 'high');
+
+        $csv = $this->actingAs($pm)->get(route('metrics.risks.csv', $project))->streamedContent();
+
+        // The dangerous title must be prefixed with a tab so Excel treats it as text.
+        $this->assertStringContainsString("\t=HYPERLINK", $csv);
+        $this->assertStringNotContainsString(',=HYPERLINK', $csv);
+    }
+
     public function test_csv_export_denied_outside_scope(): void
     {
         [$project] = $this->boundProject();
