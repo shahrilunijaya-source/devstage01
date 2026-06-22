@@ -94,6 +94,23 @@ class UrsbDemoSeeder extends Seeder
 
             // Draft hypotheses but leave the session mid-review (not approved/baselined).
             app(SessionEngineService::class)->preAnalyze($session->fresh());
+
+            // A failed verification with an open defect, so the V&V register on a
+            // mid-flight project shows the defect loop in action.
+            $requirement = EngObject::where('project_id', $project->id)
+                ->where('type', ObjectType::BUSINESS_REQUIREMENT->value)
+                ->orderBy('id')->first();
+
+            if ($requirement !== null) {
+                $approver = User::firstOrCreate(
+                    ['email' => 'admin@ursb.test'],
+                    ['name' => 'URSB Admin', 'role' => 'admin', 'password' => bcrypt('password'), 'email_verified_at' => now()],
+                );
+                $verification = app(VerificationService::class);
+                $case = $verification->addTestCase($requirement, 'Reconcile a nightly fuel export', 'Export one night of POS totals; assert they match pump dips.', $approver);
+                $verification->recordResult($case, 'fail', 'Legacy POS has no export API — reconciliation could not run.', $approver);
+                $verification->raiseDefect($case, 'Legacy POS lacks an export API', 'Blocks automated nightly reconciliation; manual export needed until POS upgrade.', $approver);
+            }
         }
 
         $this->seedSecondUser($tenant, $project);

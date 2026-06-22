@@ -76,6 +76,35 @@ class VerificationController extends Controller
         return $this->back($case->project, "Result recorded for {$case->ref}: {$data['outcome']}.");
     }
 
+    /** Raise a defect against a failed test case. */
+    public function raiseDefect(Request $request, EngObject $case): RedirectResponse
+    {
+        $this->authorizeValidate($request, $case);
+        abort_unless($case->type === ObjectType::TEST_CASE, 404);
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'detail' => ['nullable', 'string', 'max:10000'],
+        ]);
+
+        $defect = $this->verification->raiseDefect($case, $data['title'], $data['detail'] ?? null, $request->user());
+
+        return $this->back($case->project, "Defect {$defect->ref} raised against {$case->ref}.");
+    }
+
+    /** Mark a defect resolved. */
+    public function resolveDefect(Request $request, EngObject $defect): RedirectResponse
+    {
+        $this->authorizeValidate($request, $defect);
+        abort_unless($defect->type === ObjectType::DEFECT, 404);
+
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:2000']]);
+
+        $this->verification->resolveDefect($defect, $data['note'] ?? null, $request->user());
+
+        return $this->back($defect->project, "Defect {$defect->ref} resolved.");
+    }
+
     /** Export the V&V matrix as compliance evidence (PRD §17 traceability). */
     public function csv(Request $request, Project $project): StreamedResponse
     {

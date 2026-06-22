@@ -86,6 +86,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/portfolio/projects/{project}/verification.csv', [VerificationController::class, 'csv'])->name('verification.csv');
     Route::post('/portfolio/objects/{requirement}/test-cases', [VerificationController::class, 'storeTestCase'])->name('verification.test-cases.store');
     Route::post('/portfolio/test-cases/{case}/results', [VerificationController::class, 'recordResult'])->name('verification.results.store');
+    Route::post('/portfolio/test-cases/{case}/defects', [VerificationController::class, 'raiseDefect'])->name('verification.defects.store');
+    Route::post('/portfolio/defects/{defect}/resolve', [VerificationController::class, 'resolveDefect'])->name('verification.defects.resolve');
 
     Route::get('/portfolio/projects/{project}/changes', [ChangeRequestController::class, 'index'])->name('changes.index');
     Route::get('/portfolio/projects/{project}/objects', [ObjectController::class, 'index'])->name('objects.index');

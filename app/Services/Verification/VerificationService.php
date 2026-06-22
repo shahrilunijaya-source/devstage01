@@ -59,19 +59,28 @@ class VerificationService
             ->orderBy('ref')->get()->keyBy('id');
 
         $casesByRequirement = $this->casesByRequirement($project, $cases);
-        $outcomes = $this->latestOutcomes($project, $cases->keys()->all());
+        $caseIds = $cases->keys()->all();
+        $outcomes = $this->latestOutcomes($project, $caseIds);
+        $defectsByCase = $this->openDefectsByCase($project, $caseIds);
 
-        $rows = $requirements->map(function (EngObject $req) use ($casesByRequirement, $cases, $outcomes): array {
-            $caseRows = collect($casesByRequirement[$req->id] ?? [])
+        $rows = $requirements->map(function (EngObject $req) use ($casesByRequirement, $cases, $outcomes, $defectsByCase): array {
+            $caseIds = $casesByRequirement[$req->id] ?? [];
+
+            $caseRows = collect($caseIds)
                 ->map(fn (int $id): ?array => $cases->has($id) ? [
                     'case' => $cases->get($id),
                     'outcome' => $outcomes[$id] ?? null,
                 ] : null)
                 ->filter()->values();
 
+            $defects = collect($caseIds)
+                ->flatMap(fn (int $id): array => $defectsByCase[$id] ?? [])
+                ->values();
+
             return [
                 'requirement' => $req,
                 'cases' => $caseRows,
+                'defects' => $defects,
                 'status' => $this->statusFor($caseRows),
             ];
         });
@@ -147,6 +156,90 @@ class VerificationService
         $this->trace->link($result, $case, RelationType::TRACES_TO, $outcome, $user->id);
 
         return $result;
+    }
+
+    /**
+     * Raise a defect against a (typically failed) test case. The DEFECT is a
+     * graph object linked TRACES_TO the case, so it traces through to the
+     * requirement the case verifies. Starts open.
+     */
+    public function raiseDefect(EngObject $case, string $title, ?string $detail, User $user): EngObject
+    {
+        $defect = $this->graph->create(
+            ObjectType::DEFECT,
+            (int) $case->tenant_id,
+            (int) $case->project_id,
+            $title,
+            [
+                'module_id' => $case->module_id,
+                'stage_id' => $case->stage_id,
+                'session_id' => $case->session_id,
+                'owner_user_id' => $user->id,
+                'source' => 'verification',
+                'status' => ObjectStatus::DECISION_REQUIRED,
+                'classification' => $case->classification ?? 'internal',
+                'body' => $detail,
+                'attributes' => ['state' => 'open', 'against' => $case->ref],
+                'changed_by' => $user->id,
+                'change_summary' => 'defect raised',
+            ],
+        );
+
+        $this->trace->link($defect, $case, RelationType::TRACES_TO, 'defect', $user->id);
+
+        return $defect;
+    }
+
+    /**
+     * Resolve an open defect — a versioned state change (history preserved).
+     */
+    public function resolveDefect(EngObject $defect, ?string $note, User $user): EngObject
+    {
+        $attributes = ($defect->getAttribute('attributes') ?? []);
+        $attributes['state'] = 'resolved';
+        $attributes['resolution'] = $note;
+
+        return $this->graph->update(
+            $defect,
+            ['attributes' => $attributes, 'status' => ObjectStatus::CONFIRMED_BY_EVIDENCE->value],
+            $user->id,
+            'defect resolved',
+        );
+    }
+
+    /**
+     * caseId => [DEFECT, ...] for defects still in the open state.
+     *
+     * @param  array<int, int>  $caseIds
+     * @return array<int, array<int, EngObject>>
+     */
+    private function openDefectsByCase(Project $project, array $caseIds): array
+    {
+        if ($caseIds === []) {
+            return [];
+        }
+
+        $edges = TraceRelationship::where('project_id', $project->id)
+            ->where('relation_type', RelationType::TRACES_TO->value)
+            ->whereIn('to_object_id', $caseIds)
+            ->get();
+
+        $defects = EngObject::whereIn('id', $edges->pluck('from_object_id')->unique()->all())
+            ->where('type', ObjectType::DEFECT->value)
+            ->get()->keyBy('id');
+
+        $map = [];
+        foreach ($edges as $edge) {
+            $defect = $defects->get($edge->from_object_id);
+            if ($defect === null) {
+                continue;
+            }
+            if (($defect->getAttribute('attributes')['state'] ?? 'open') === 'open') {
+                $map[$edge->to_object_id][] = $defect;
+            }
+        }
+
+        return $map;
     }
 
     /**
@@ -260,6 +353,7 @@ class VerificationService
             'cases' => $caseCount,
             'executed' => $executed,
             'pass_rate' => $executed > 0 ? round($passed / $executed * 100, 1) : 0.0,
+            'open_defects' => $rows->sum(fn (array $row): int => $row['defects']->count()),
         ];
     }
 }

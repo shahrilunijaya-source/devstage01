@@ -39,10 +39,11 @@
         <div class="mb-4 rounded-lg bg-red-50 text-red-600 text-[13px] px-4 py-2.5">{{ session('error') }}</div>
     @endif
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-5">
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-5">
         <div class="stat-card"><div class="stat-value">{{ $summary['verified_pct'] }}%</div><div class="stat-label">Verified</div></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['failing'] }}</div><div class="stat-label">Failing</div></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['unverified'] }}</div><div class="stat-label">Unverified</div></div>
+        <div class="stat-card"><div class="stat-value">{{ $summary['open_defects'] }}</div><div class="stat-label">Open defects</div></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['cases'] }}</div><div class="stat-label">Test cases</div></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['executed'] }}</div><div class="stat-label">Executed</div></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['pass_rate'] }}%</div><div class="stat-label">Pass rate</div></div>
@@ -93,6 +94,17 @@
                                                 <input type="text" name="note" placeholder="note" class="form-input text-[12px] py-1 flex-1" maxlength="2000">
                                                 <button class="btn-pine text-[12px] py-1 px-2.5">Save</button>
                                             </form>
+                                            @if ($c['outcome'] === 'fail')
+                                                <details class="mt-1.5">
+                                                    <summary class="text-[11px] text-red-600 hover:text-red-700 cursor-pointer select-none">⚠ Raise defect</summary>
+                                                    <form method="POST" action="{{ route('verification.defects.store', $c['case']) }}" class="mt-1 space-y-1">
+                                                        @csrf
+                                                        <input type="text" name="title" placeholder="Defect title" required maxlength="255" class="form-input text-[12px] py-1 w-full">
+                                                        <input type="text" name="detail" placeholder="Detail (optional)" maxlength="10000" class="form-input text-[12px] py-1 w-full">
+                                                        <button class="btn-danger text-[12px] py-1 px-2.5">Raise defect</button>
+                                                    </form>
+                                                </details>
+                                            @endif
                                         </td>
                                     @endif
                                 </tr>
@@ -101,6 +113,30 @@
                         </table>
                     @else
                         <p class="text-[13px] text-gray-400 italic mt-2">No test cases — this requirement is unverified.</p>
+                    @endif
+
+                    @if ($row['defects']->isNotEmpty())
+                        <div class="mt-3 rounded-lg bg-red-50/60 border border-red-100 p-3">
+                            <div class="text-[12px] font-semibold text-red-700 mb-1.5">Open defects ({{ $row['defects']->count() }})</div>
+                            <ul class="space-y-1.5">
+                                @foreach ($row['defects'] as $defect)
+                                    <li class="flex items-center justify-between gap-3">
+                                        <div class="min-w-0 text-[13px]">
+                                            <a href="{{ route('objects.show', $defect) }}" class="font-mono text-[12px] text-red-600 hover:text-red-700">{{ $defect->ref }}</a>
+                                            <span class="text-gray-900">{{ $defect->title }}</span>
+                                            <span class="text-gray-400 text-[11px]">against {{ $defect->getAttribute('attributes')['against'] ?? '—' }}</span>
+                                        </div>
+                                        @if ($canValidate)
+                                            <form method="POST" action="{{ route('verification.defects.resolve', $defect) }}" class="flex items-center gap-1.5 shrink-0">
+                                                @csrf
+                                                <input type="text" name="note" placeholder="resolution" class="form-input text-[12px] py-1 w-[160px]" maxlength="2000">
+                                                <button class="btn-pine text-[12px] py-1 px-2.5">Resolve</button>
+                                            </form>
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
                     @endif
 
                     @if ($canValidate)

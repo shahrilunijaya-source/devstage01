@@ -151,6 +151,59 @@ class VerificationTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_raise_defect_surfaces_on_requirement(): void
+    {
+        [$project, $pm] = $this->boundProject();
+        $req = $this->requirement($project);
+        $service = app(VerificationService::class);
+        $case = $service->addTestCase($req, 'Run a payroll cycle', null, $pm);
+        $service->recordResult($case, 'fail', 'paid late', $pm);
+
+        $defect = $service->raiseDefect($case, 'Late disbursement', 'paid on the 27th', $pm);
+        $this->assertDatabaseHas('objects', ['id' => $defect->id, 'type' => 'defect']);
+
+        $row = $service->register($project)['rows']->first();
+        $this->assertCount(1, $row['defects']);
+        $this->assertSame(1, $service->register($project)['summary']['open_defects']);
+    }
+
+    public function test_resolving_defect_clears_it_from_open_list(): void
+    {
+        [$project, $pm] = $this->boundProject();
+        $req = $this->requirement($project);
+        $service = app(VerificationService::class);
+        $case = $service->addTestCase($req, 'Run a payroll cycle', null, $pm);
+        $defect = $service->raiseDefect($case, 'Late disbursement', null, $pm);
+
+        $service->resolveDefect($defect, 'gateway reconfigured', $pm);
+
+        $this->assertSame(0, $service->register($project)['summary']['open_defects']);
+        $this->assertSame('resolved', $defect->fresh()->getAttribute('attributes')['state']);
+    }
+
+    public function test_raise_defect_via_http_is_validate_gated(): void
+    {
+        [$project, $member] = $this->boundProject('project_member');
+        $req = $this->requirement($project);
+        $case = app(VerificationService::class)->addTestCase($req, 'A case', null, User::factory()->create());
+
+        $this->actingAs($member)
+            ->post(route('verification.defects.store', $case), ['title' => 'Sneaky defect'])
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('objects', ['type' => 'defect']);
+    }
+
+    public function test_defect_can_only_be_raised_against_a_test_case(): void
+    {
+        [$project, $pm] = $this->boundProject();
+        $req = $this->requirement($project);
+
+        $this->actingAs($pm)
+            ->post(route('verification.defects.store', $req), ['title' => 'Wrong target'])
+            ->assertNotFound();
+    }
+
     public function test_index_denied_outside_scope(): void
     {
         [$project] = $this->boundProject();
