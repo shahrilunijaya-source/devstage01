@@ -50,16 +50,43 @@ class PolicyDecisionPoint
         $this->fieldRuleCache = null;
     }
 
+    /**
+     * Terminal access decision for one action on one object — audited. Use this
+     * at a Policy Enforcement Point (a user actively requesting access).
+     */
     public function can(User $user, string $action, mixed $object = null, ?string $field = null, string $pep = 'gate'): Decision
     {
         $ref = $this->resolver->resolve($object);
+        $decision = $this->evaluate($user, $action, $ref);
 
+        // Abstain (no resolvable scope) is not a decision — let Laravel policies decide.
+        if ($decision->abstain) {
+            return $decision;
+        }
+
+        return $this->audit($decision, $user, $action, $ref, $pep, $field);
+    }
+
+    /**
+     * Non-audited visibility predicate for bulk list filtering (PRD §6.4). A list
+     * render drops rows the viewer may not see; auditing every row would flood the
+     * access log with one entry per object per page. The decision logic is the
+     * same single authority as can() — only the audit write is skipped.
+     */
+    public function allows(User $user, string $action, mixed $object = null): bool
+    {
+        return $this->evaluate($user, $action, $this->resolver->resolve($object))->permitted;
+    }
+
+    /** The layered access decision (no audit, no side effects). */
+    private function evaluate(User $user, string $action, ?ScopeRef $ref): Decision
+    {
         if ($user->isAdmin()) {
-            return $this->audit(Decision::permit('admin'), $user, $action, $ref, $pep, $field);
+            return Decision::permit('admin');
         }
 
         if ($user->isDirector() && in_array($action, self::READ_ACTIONS, true)) {
-            return $this->audit(Decision::permit('director-read'), $user, $action, $ref, $pep, $field);
+            return Decision::permit('director-read');
         }
 
         // No resolvable scope — abstain so existing Laravel policies decide.
@@ -70,7 +97,7 @@ class PolicyDecisionPoint
         $bindings = $this->coveringBindings($user, $ref);
 
         if ($bindings === []) {
-            return $this->audit(Decision::deny('no active binding for scope'), $user, $action, $ref, $pep, $field);
+            return Decision::deny('no active binding for scope');
         }
 
         $roleIds = array_values(array_unique(array_map(fn (ScopeBinding $b): int => (int) $b->role_id, $bindings)));
@@ -86,19 +113,19 @@ class PolicyDecisionPoint
             ->all();
 
         if ($effects === []) {
-            return $this->audit(Decision::deny('no role grants this action on scope'), $user, $action, $ref, $pep, $field);
+            return Decision::deny('no role grants this action on scope');
         }
 
         if (in_array('deny', $effects, true)) {
-            return $this->audit(Decision::deny('explicit deny'), $user, $action, $ref, $pep, $field);
+            return Decision::deny('explicit deny');
         }
 
         // Object-rule layer: attribute-based deny (classification/status), PRD §6.3.
         if ($this->objectRuleDenies($ref, $action)) {
-            return $this->audit(Decision::deny('denied by object rule'), $user, $action, $ref, $pep, $field);
+            return Decision::deny('denied by object rule');
         }
 
-        return $this->audit(Decision::permit('granted by role'), $user, $action, $ref, $pep, $field);
+        return Decision::permit('granted by role');
     }
 
     /**

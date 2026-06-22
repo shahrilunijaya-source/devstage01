@@ -65,7 +65,9 @@ class ObjectController extends Controller
             ->orderBy('type')->orderBy('ref')
             ->get()
             // Deny-by-default: drop objects the viewer may not see (e.g. restricted).
-            ->filter(fn (EngObject $o): bool => $this->pdp->can($user, 'view', $o)->permitted)
+            // Bulk visibility filter → non-audited allows() (the page view itself is
+            // audited once by the project gate above).
+            ->filter(fn (EngObject $o): bool => $this->pdp->allows($user, 'view', $o))
             ->values();
 
         $rows = $matches->map(fn (EngObject $o): array => [
@@ -124,7 +126,7 @@ class ObjectController extends Controller
     {
         return $edges
             ->map(fn ($edge) => ['relation' => $edge->relation_type->label(), 'object' => $edge->{$rel}])
-            ->filter(fn (array $row): bool => $row['object'] !== null && $this->pdp->can($user, 'view', $row['object'])->permitted)
+            ->filter(fn (array $row): bool => $row['object'] !== null && $this->pdp->allows($user, 'view', $row['object']))
             ->values();
     }
 
@@ -135,7 +137,7 @@ class ObjectController extends Controller
     private function visible(array $objects, $user): Collection
     {
         return collect($objects)
-            ->filter(fn (EngObject $o): bool => $this->pdp->can($user, 'view', $o)->permitted)
+            ->filter(fn (EngObject $o): bool => $this->pdp->allows($user, 'view', $o))
             ->values();
     }
 }

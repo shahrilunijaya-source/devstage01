@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\AccessControl;
 
 use App\Enums\ObjectType;
+use App\Models\Acl\AccessAudit;
 use App\Models\Acl\Role;
 use App\Models\Acl\ScopeBinding;
 use App\Models\Graph\EngObject;
@@ -81,5 +82,26 @@ class PdpCacheTest extends TestCase
         ]);
 
         $this->assertTrue($pdp->can($stranger, 'view', $object)->permitted);
+    }
+
+    public function test_allows_is_silent_while_can_audits(): void
+    {
+        [$project, $pm] = $this->boundProject();
+        $object = app(ObjectGraphService::class)->create(
+            ObjectType::FINDING, $project->tenant_id, $project->id, 'F', ['classification' => 'internal'],
+        );
+
+        $pdp = app(PolicyDecisionPoint::class);
+
+        // Bulk-filter checks must not write audit rows…
+        AccessAudit::query()->delete();
+        for ($i = 0; $i < 5; $i++) {
+            $pdp->allows($pm, 'view', $object);
+        }
+        $this->assertSame(0, AccessAudit::count());
+
+        // …but a terminal can() decision still does.
+        $pdp->can($pm, 'view', $object);
+        $this->assertSame(1, AccessAudit::count());
     }
 }

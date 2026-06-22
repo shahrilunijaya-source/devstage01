@@ -41,7 +41,7 @@ class ActivityService
     private function objectEvents(Project $project, User $user): Collection
     {
         $visibleIds = EngObject::forProject($project->id)->get()
-            ->filter(fn (EngObject $o): bool => $this->pdp->can($user, 'view', $o)->permitted)
+            ->filter(fn (EngObject $o): bool => $this->pdp->allows($user, 'view', $o))
             ->keyBy('id');
 
         if ($visibleIds->isEmpty()) {

@@ -72,7 +72,7 @@ class MetricsController extends Controller
             ->with('owner', 'sourceObject')
             ->orderByDesc('id')
             ->get()
-            ->filter(fn ($d) => $this->pdp->can($user, 'view', $d)->permitted)
+            ->filter(fn ($d) => $this->pdp->allows($user, 'view', $d))
             ->values();
 
         return view('metrics.decisions', [
