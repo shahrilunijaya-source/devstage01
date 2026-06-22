@@ -24,6 +24,35 @@
         </div>
     </div>
 
+    @if ($summary['projects'] > 0)
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-7">
+            <div class="stat-card">
+                <div class="stat-value">{{ $summary['projects'] }}</div>
+                <div class="stat-label">Projects</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ $summary['avgProgress'] }}%</div>
+                <div class="stat-label">Avg progress</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value {{ $summary['byHealth']['blocked'] > 0 ? 'text-red-600' : '' }}">{{ $summary['byHealth']['blocked'] }}</div>
+                <div class="stat-label">Blocked</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value {{ $summary['byHealth']['at_risk'] > 0 ? 'text-flag' : '' }}">{{ $summary['byHealth']['at_risk'] }}</div>
+                <div class="stat-label">At risk</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ $summary['openRisks'] }}</div>
+                <div class="stat-label">Open risks</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ $summary['baselines'] }}</div>
+                <div class="stat-label">Baselines</div>
+            </div>
+        </div>
+    @endif
+
     @forelse ($cards as $card)
         <div class="card card-pad mb-6">
             <div class="flex items-center justify-between gap-3 mb-4">

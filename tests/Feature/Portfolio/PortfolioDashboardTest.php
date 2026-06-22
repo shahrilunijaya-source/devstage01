@@ -8,7 +8,6 @@ use App\Enums\ObjectType;
 use App\Models\Acl\Role;
 use App\Models\Acl\ScopeBinding;
 use App\Models\Portfolio\Module;
-use App\Models\Portfolio\Stage;
 use App\Models\Portfolio\Tenant;
 use App\Models\Project;
 use App\Models\User;
@@ -69,6 +68,34 @@ class PortfolioDashboardTest extends TestCase
 
         $this->assertSame('blocked', $card['health']);
         $this->assertSame(1, $card['blockedStages']);
+    }
+
+    public function test_summary_rolls_up_portfolio_totals(): void
+    {
+        [$project, $pm] = $this->boundProject();
+        $module = Module::create(['project_id' => $project->id, 'name' => 'Payroll', 'code' => 'PAY', 'status' => 'active']);
+        $module->stages()->orderBy('id')->first()->update(['status' => 'baselined']);
+        app(ObjectGraphService::class)->create(ObjectType::RISK, $project->tenant_id, $project->id, 'Budget risk');
+
+        $cards = $this->service()->forUser($pm);
+        $summary = $this->service()->summarize($cards);
+
+        $this->assertSame(1, $summary['projects']);
+        $this->assertSame(1, $summary['openRisks']);
+        $this->assertSame(1, $summary['byHealth']['at_risk']);
+        $this->assertSame(0, $summary['byHealth']['blocked']);
+        $this->assertSame(11, $summary['avgProgress']);
+    }
+
+    public function test_dashboard_page_shows_executive_summary(): void
+    {
+        [$project, $pm] = $this->boundProject();
+        Module::create(['project_id' => $project->id, 'name' => 'Payroll', 'code' => 'PAY', 'status' => 'active']);
+
+        $this->actingAs($pm)->get(route('portfolio.dashboard'))
+            ->assertOk()
+            ->assertSee('Avg progress')
+            ->assertSee('Open risks');
     }
 
     public function test_dashboard_hides_projects_the_user_cannot_see(): void

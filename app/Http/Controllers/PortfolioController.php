@@ -49,8 +49,11 @@ class PortfolioController extends Controller
 
     public function dashboard(Request $request, PortfolioDashboardService $dashboard): View
     {
+        $cards = $dashboard->forUser($request->user());
+
         return view('portfolio.dashboard', [
-            'cards' => $dashboard->forUser($request->user()),
+            'cards' => $cards,
+            'summary' => $dashboard->summarize($cards),
             'columns' => $dashboard->lifecycleColumns(),
         ]);
     }
