@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\ObjectType;
+use App\Models\Graph\EngObject;
 use App\Models\Portfolio\Session;
 use App\Models\Project;
 use App\Services\AccessControl\PolicyDecisionPoint;
@@ -55,6 +57,27 @@ class MetricsController extends Controller
         return view('metrics.activity', [
             'project' => $project,
             'events' => $activity->feed($project, $request->user()),
+        ]);
+    }
+
+    /** Decision register — every DECISION object recorded for the project (PRD §9). */
+    public function decisions(Request $request, Project $project): View
+    {
+        abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');
+
+        $user = $request->user();
+
+        $decisions = EngObject::forProject($project->id)
+            ->where('type', ObjectType::DECISION->value)
+            ->with('owner', 'sourceObject')
+            ->orderByDesc('id')
+            ->get()
+            ->filter(fn ($d) => $this->pdp->can($user, 'view', $d)->permitted)
+            ->values();
+
+        return view('metrics.decisions', [
+            'project' => $project,
+            'decisions' => $decisions,
         ]);
     }
 }

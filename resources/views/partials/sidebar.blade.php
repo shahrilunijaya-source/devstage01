@@ -62,4 +62,19 @@
             </a>
         @endif
     </nav>
+
+    {{-- Feedback — pinned to the bottom of the sidebar (Track-style yellow pill). --}}
+    @php($feedbackActive = request()->routeIs('feedback.*') || request()->routeIs('admin.feedback.*'))
+    <div class="shrink-0 border-t border-white/10" :class="navCollapsed ? 'p-2' : 'p-3'">
+        <button type="button" @click="$dispatch('open-modal', 'feedback-hub')"
+                @class([
+                    'w-full flex items-center gap-2 rounded-full font-semibold text-[13px] transition-colors ring-1',
+                    'bg-flag text-pine ring-flag shadow-sm' => $feedbackActive,
+                    'bg-flag/15 text-flag ring-flag/30 hover:bg-flag/25' => ! $feedbackActive,
+                ])
+                :class="navCollapsed ? 'justify-center px-0 py-2.5' : 'px-4 py-2.5'">
+            <svg class="shrink-0" style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12a9 9 0 11-3.6-7.2L21 3l-1.2 4.2A8.96 8.96 0 0121 12z"/></svg>
+            <span x-show="!navCollapsed" x-cloak>Feedback</span>
+        </button>
+    </div>
 </aside>

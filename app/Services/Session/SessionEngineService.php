@@ -222,10 +222,43 @@ class SessionEngineService
 
     private function decide(EngObject $object, User $user): EngObject
     {
-        return $this->graph->update($object, [
+        $resolved = $this->graph->update($object, [
             'status' => ObjectStatus::CONFIRMED_BY_EVIDENCE,
             'confidence' => ConfidenceLevel::HIGH,
         ], $user->id, 'decision recorded in session');
+
+        // Evidence is source, not a judgement call — only log decisions on hypotheses.
+        if ($object->type !== ObjectType::EVIDENCE) {
+            $this->recordDecision($resolved, $user);
+        }
+
+        return $resolved;
+    }
+
+    /** Log a first-class DECISION object resolving an item (PRD §9 decision register). */
+    private function recordDecision(EngObject $target, User $user): void
+    {
+        $decision = $this->graph->create(
+            ObjectType::DECISION,
+            (int) $target->tenant_id,
+            (int) $target->project_id,
+            'Decision on '.$target->ref,
+            [
+                'module_id' => $target->module_id,
+                'stage_id' => $target->stage_id,
+                'session_id' => $target->session_id,
+                'owner_user_id' => $user->id,
+                'source' => $target->ref,
+                'source_object_id' => $target->id,
+                'status' => ObjectStatus::CONFIRMED_BY_EVIDENCE,
+                'confidence' => ConfidenceLevel::HIGH,
+                'body' => "Item {$target->ref} accepted by decision during session capture.",
+                'changed_by' => $user->id,
+                'change_summary' => 'decision recorded',
+            ],
+        );
+
+        $this->trace->link($decision, $target, RelationType::RESOLVES, null, $user->id);
     }
 
     private function isHighImpact(EngObject $object): bool

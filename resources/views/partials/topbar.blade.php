@@ -16,12 +16,6 @@
     <div class="flex items-center gap-2 ml-auto">
         @auth
             @php($tbUser = auth()->user())
-            {{-- Global feedback trigger — opens the feedback hub modal from any page. --}}
-            <button type="button" @click="$dispatch('open-modal', 'feedback-hub')"
-                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 8h10M7 12h6m-6 8l-3-3H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-7l-3 3z"/></svg>
-                <span class="hidden sm:inline">Feedback</span>
-            </button>
             <div x-data="{ open: false }" class="relative ml-1">
                 <button @click="open = !open"
                     class="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">

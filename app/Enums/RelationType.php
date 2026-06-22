@@ -20,6 +20,7 @@ enum RelationType: string
     case SUPERSEDES = 'supersedes';
     case MITIGATES = 'mitigates';
     case APPROVES = 'approves';
+    case RESOLVES = 'resolves';
 
     /** Human-readable relation label, e.g. "derived from". */
     public function label(): string

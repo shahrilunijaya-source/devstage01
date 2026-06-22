@@ -36,7 +36,8 @@ class BaselineService
 
             $objects = EngObject::query()
                 ->where('stage_id', $stage->id)
-                ->where('type', '!=', ObjectType::APPROVAL->value) // sign-off records are not baseline members
+                // Sign-off + decision records track the baseline; they are not members of it.
+                ->whereNotIn('type', [ObjectType::APPROVAL->value, ObjectType::DECISION->value])
                 ->where(function ($q) use ($approvedSessionIds): void {
                     $q->whereNull('session_id');
                     if ($approvedSessionIds !== []) {
