@@ -76,4 +76,29 @@ class AclAdminTest extends TestCase
             'user_id' => $target->id, 'role_id' => $roleId, 'scope_type' => 'project',
         ])->assertSessionHasErrors('project_id');
     }
+
+    public function test_audit_decision_filter_narrows_results(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $stranger = User::factory()->create(['role' => 'regular']);
+        $pm = User::factory()->create(['role' => 'regular']);
+        $project = $this->project();
+        ScopeBinding::create([
+            'user_id' => $pm->id, 'role_id' => Role::where('key', 'project_pm')->whereNull('tenant_id')->value('id'),
+            'tenant_id' => $project->tenant_id, 'scope_type' => 'project', 'scope_id' => $project->id,
+        ]);
+
+        $this->pdp()->can($stranger, 'view', $project); // deny: 'no active binding for scope'
+        $this->pdp()->can($pm, 'view', $project);       // permit: 'granted by role'
+
+        $this->actingAs($admin)->get(route('admin.acl.audit', ['decision' => 'deny']))
+            ->assertOk()
+            ->assertSee('no active binding for scope')
+            ->assertDontSee('granted by role');
+
+        $this->actingAs($admin)->get(route('admin.acl.audit', ['decision' => 'permit']))
+            ->assertOk()
+            ->assertSee('granted by role')
+            ->assertDontSee('no active binding for scope');
+    }
 }

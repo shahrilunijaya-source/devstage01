@@ -137,8 +137,36 @@ class AclController extends Controller
     {
         $this->authorizeAdmin($request);
 
+        $filters = [
+            'decision' => $request->query('decision'),
+            'action' => $request->query('action'),
+            'user_id' => $request->query('user_id'),
+            'pep' => $request->query('pep'),
+            'q' => mb_substr(trim((string) $request->query('q', '')), 0, 100),
+            'from' => $request->query('from'),
+            'to' => $request->query('to'),
+        ];
+
+        $entries = AccessAudit::with('user')
+            ->when($filters['decision'], fn ($q, $v) => $q->where('decision', $v))
+            ->when($filters['action'], fn ($q, $v) => $q->where('action', $v))
+            ->when($filters['user_id'], fn ($q, $v) => $q->where('user_id', $v))
+            ->when($filters['pep'], fn ($q, $v) => $q->where('pep', $v))
+            ->when($filters['q'] !== '', fn ($q) => $q->where(fn ($w) => $w
+                ->where('reason', 'like', '%'.$filters['q'].'%')
+                ->orWhere('object_type', 'like', '%'.$filters['q'].'%')))
+            ->when($filters['from'], fn ($q, $v) => $q->whereDate('created_at', '>=', $v))
+            ->when($filters['to'], fn ($q, $v) => $q->whereDate('created_at', '<=', $v))
+            ->latest()
+            ->paginate(50)
+            ->withQueryString();
+
         return view('admin.acl.audit', [
-            'entries' => AccessAudit::with('user')->latest()->limit(200)->get(),
+            'entries' => $entries,
+            'filters' => $filters,
+            'actions' => AccessAudit::query()->distinct()->orderBy('action')->pluck('action')->filter()->values(),
+            'peps' => AccessAudit::query()->distinct()->orderBy('pep')->pluck('pep')->filter()->values(),
+            'users' => User::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
