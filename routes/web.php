@@ -21,6 +21,7 @@ use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StageController;
 use App\Http\Controllers\UrsbDashboardController;
+use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\WorkloadController;
 use Illuminate\Support\Facades\Route;
 
@@ -79,6 +80,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/portfolio/projects/{project}/decisions.csv', [MetricsController::class, 'decisionsCsv'])->name('metrics.decisions.csv');
     Route::get('/portfolio/projects/{project}/risks', [MetricsController::class, 'risks'])->name('metrics.risks');
     Route::get('/portfolio/projects/{project}/risks.csv', [MetricsController::class, 'risksCsv'])->name('metrics.risks.csv');
+
+    // Verification & Validation register (PRD §17).
+    Route::get('/portfolio/projects/{project}/verification', [VerificationController::class, 'index'])->name('verification.index');
+    Route::get('/portfolio/projects/{project}/verification.csv', [VerificationController::class, 'csv'])->name('verification.csv');
+    Route::post('/portfolio/objects/{requirement}/test-cases', [VerificationController::class, 'storeTestCase'])->name('verification.test-cases.store');
+    Route::post('/portfolio/test-cases/{case}/results', [VerificationController::class, 'recordResult'])->name('verification.results.store');
 
     Route::get('/portfolio/projects/{project}/changes', [ChangeRequestController::class, 'index'])->name('changes.index');
     Route::get('/portfolio/projects/{project}/objects', [ObjectController::class, 'index'])->name('objects.index');

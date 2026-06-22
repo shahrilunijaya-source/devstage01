@@ -17,6 +17,7 @@ use App\Services\Graph\ObjectGraphService;
 use App\Services\Knowledge\KnowledgeResolver;
 use App\Services\Knowledge\KnowledgeSeeder;
 use App\Services\Session\SessionEngineService;
+use App\Services\Verification\VerificationService;
 use Illuminate\Database\Seeder;
 
 /**
@@ -172,6 +173,23 @@ class UrsbDemoSeeder extends Seeder
             'title' => 'Capture tender clauses as evidence before pre-analysis.',
             'body' => 'Earlier evidence capture produced cleaner AI-drafted requirements.',
         ]);
+
+        // Verify a requirement end-to-end so the V&V register has live content:
+        // one passing test case proves the requirement, the rest stay unverified.
+        $requirement = EngObject::where('project_id', $project->id)
+            ->where('type', ObjectType::BUSINESS_REQUIREMENT->value)
+            ->orderBy('id')->first();
+
+        if ($requirement !== null) {
+            $verification = app(VerificationService::class);
+            $case = $verification->addTestCase(
+                $requirement,
+                'Run a payroll cycle and confirm disbursement by the 25th',
+                'Process a sample payroll batch; assert the disbursement date is on or before the 25th.',
+                $approver,
+            );
+            $verification->recordResult($case, 'pass', 'Sample batch disbursed on the 24th.', $approver);
+        }
 
         return $project;
     }
