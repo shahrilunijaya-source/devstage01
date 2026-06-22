@@ -7,6 +7,7 @@ namespace Tests\Feature\Notifications;
 use App\Enums\ObjectType;
 use App\Models\Acl\Role;
 use App\Models\Acl\ScopeBinding;
+use App\Models\Graph\ChangeRequest;
 use App\Models\Graph\EngObject;
 use App\Models\Notification;
 use App\Models\Portfolio\Module;
@@ -90,5 +91,30 @@ class GovernanceNotificationsTest extends TestCase
 
         $this->assertSame(1, Notification::where('user_id', $teammate->id)->where('type', 'session_approved')->count());
         $this->assertSame(0, Notification::where('user_id', $approver->id)->where('type', 'session_approved')->count());
+    }
+
+    public function test_change_request_raise_notifies_team_and_decision_notifies_raiser(): void
+    {
+        $project = Project::create(['tenant_id' => Tenant::default()->id, 'name' => 'P', 'code' => 'P', 'status' => 'active']);
+        $finding = app(ObjectGraphService::class)->create(ObjectType::FINDING, $project->tenant_id, $project->id, 'Finding');
+
+        $raiser = User::factory()->create(['role' => 'regular']);
+        $teammate = User::factory()->create(['role' => 'regular']);
+        $approver = User::factory()->create(['role' => 'regular']);
+        foreach ([$raiser, $teammate, $approver] as $u) {
+            $this->bind($u, $project);
+        }
+
+        $this->actingAs($raiser)->post(route('changes.store', $finding), ['title' => 'Reword finding'])
+            ->assertRedirect();
+
+        $this->assertSame(1, Notification::where('user_id', $teammate->id)->where('type', 'change_raised')->count());
+        $this->assertSame(0, Notification::where('user_id', $raiser->id)->where('type', 'change_raised')->count());
+
+        // A different user approves (separation of duties) → the raiser is notified.
+        $change = ChangeRequest::where('project_id', $project->id)->firstOrFail();
+        $this->actingAs($approver)->post(route('changes.approve', $change))->assertRedirect();
+
+        $this->assertSame(1, Notification::where('user_id', $raiser->id)->where('type', 'change_approved')->count());
     }
 }

@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Services\AccessControl\PolicyDecisionPoint;
 use App\Services\Change\ChangeManagementService;
 use App\Services\Change\Exceptions\ChangeManagementException;
+use App\Services\NotificationService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class ChangeRequestController extends Controller
     public function __construct(
         private readonly PolicyDecisionPoint $pdp,
         private readonly ChangeManagementService $engine,
+        private readonly NotificationService $notifications,
     ) {}
 
     public function index(Request $request, Project $project): View
@@ -64,6 +66,12 @@ class ChangeRequestController extends Controller
 
         $cr = $this->engine->open($object, $request->user(), $data['title'], $data['description'] ?? null, $proposed);
 
+        $this->notifications->notifyProjectBindings(
+            $object->project, 'change_raised',
+            "Change request {$cr->ref} raised on {$object->ref}: {$cr->title}.",
+            $request->user()->id,
+        );
+
         return redirect()->route('changes.show', $cr)->with('status', "Change request {$cr->ref} opened.");
     }
 
@@ -84,14 +92,16 @@ class ChangeRequestController extends Controller
     {
         abort_unless($this->pdp->can($request->user(), 'approve', $change->project)->permitted, 403, 'Access denied by ACL.');
 
-        return $this->guard($change, fn () => $this->engine->approve($change, $request->user()), 'Change request approved.');
+        return $this->guard($change, fn () => $this->engine->approve($change, $request->user()), 'Change request approved.',
+            $request, 'change_approved', "Your change request {$change->ref} was approved.");
     }
 
     public function reject(Request $request, ChangeRequest $change): RedirectResponse
     {
         abort_unless($this->pdp->can($request->user(), 'approve', $change->project)->permitted, 403, 'Access denied by ACL.');
 
-        return $this->guard($change, fn () => $this->engine->reject($change, $request->user()), 'Change request rejected.');
+        return $this->guard($change, fn () => $this->engine->reject($change, $request->user()), 'Change request rejected.',
+            $request, 'change_rejected', "Your change request {$change->ref} was rejected.");
     }
 
     public function apply(Request $request, ChangeRequest $change): RedirectResponse
@@ -99,7 +109,8 @@ class ChangeRequestController extends Controller
         abort_unless($this->pdp->can($request->user(), 'baseline', $change->project)->permitted, 403, 'Access denied by ACL.');
 
         return $this->guard($change, fn () => $this->engine->apply($change, $request->user()),
-            'Change applied. Affected downstream objects flagged for re-confirmation.');
+            'Change applied. Affected downstream objects flagged for re-confirmation.',
+            $request, 'change_applied', "Your change request {$change->ref} was applied.");
     }
 
     private function authorizeEdit(Request $request, EngObject $object): void
@@ -107,12 +118,20 @@ class ChangeRequestController extends Controller
         abort_unless($this->pdp->can($request->user(), 'edit', $object->project)->permitted, 403, 'Access denied by ACL.');
     }
 
-    private function guard(ChangeRequest $change, callable $action, string $okMessage): RedirectResponse
+    /**
+     * Run a change-engine action; on success notify the raiser of the outcome
+     * (unless they are the actor), on failure surface the engine message.
+     */
+    private function guard(ChangeRequest $change, callable $action, string $okMessage, Request $request, string $type, string $raiserMessage): RedirectResponse
     {
         try {
             $action();
         } catch (ChangeManagementException $e) {
             return redirect()->route('changes.show', $change)->with('error', $e->getMessage());
+        }
+
+        if ((int) $change->raised_by !== (int) $request->user()->id) {
+            $this->notifications->notify((int) $change->raised_by, $type, $raiserMessage, $change->project_id);
         }
 
         return redirect()->route('changes.show', $change)->with('status', $okMessage);
