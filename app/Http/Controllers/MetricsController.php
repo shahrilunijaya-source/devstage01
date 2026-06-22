@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Portfolio\Session;
 use App\Models\Project;
 use App\Services\AccessControl\PolicyDecisionPoint;
+use App\Services\Metrics\ActivityService;
 use App\Services\Metrics\CoverageService;
 use App\Services\Metrics\MetricsService;
 use Illuminate\Contracts\View\View;
@@ -44,5 +45,16 @@ class MetricsController extends Controller
         abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');
 
         return view('metrics.coverage', $coverage->matrix($project));
+    }
+
+    /** Chronological audit timeline for the project (PRD §12, §17). */
+    public function activity(Request $request, Project $project, ActivityService $activity): View
+    {
+        abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');
+
+        return view('metrics.activity', [
+            'project' => $project,
+            'events' => $activity->feed($project, $request->user()),
+        ]);
     }
 }

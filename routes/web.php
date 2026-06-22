@@ -63,6 +63,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/portfolio/projects/{project}/metrics', [MetricsController::class, 'show'])->name('metrics.show');
     Route::get('/portfolio/projects/{project}/coverage', [MetricsController::class, 'coverage'])->name('metrics.coverage');
     Route::get('/portfolio/projects/{project}/knowledge', [KnowledgeController::class, 'show'])->name('knowledge.show');
+    Route::get('/portfolio/projects/{project}/activity', [MetricsController::class, 'activity'])->name('metrics.activity');
 
     Route::get('/portfolio/projects/{project}/changes', [ChangeRequestController::class, 'index'])->name('changes.index');
     Route::get('/portfolio/projects/{project}/objects', [ObjectController::class, 'index'])->name('objects.index');
@@ -94,7 +95,7 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/dashboard', function () {
-        return view('dashboard');
+        return redirect()->route('portfolio.dashboard');
     })->name('dashboard');
 
     // Module 1: AI/RAG Chat
