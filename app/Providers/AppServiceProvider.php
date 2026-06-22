@@ -13,6 +13,7 @@ use App\Services\Session\Analysis\DeterministicEvidenceAnalyst;
 use App\Services\Session\Analysis\EvidenceAnalyst;
 use App\Services\Session\Analysis\LlmEvidenceAnalyst;
 use App\Services\WorkloadService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -55,10 +56,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Sidebar shows the count of items waiting on the current user.
+        // Sidebar shows the count of items waiting on the current user. Cached
+        // briefly (per user) so the full inbox computation doesn't run on every
+        // page render; the inbox page itself always loads live.
         View::composer('partials.sidebar', function ($view): void {
             $user = auth()->user();
-            $view->with('inboxCount', $user ? app(InboxService::class)->forUser($user)['total'] : 0);
+            $count = $user
+                ? Cache::remember("inbox_count:{$user->id}", 60, fn (): int => app(InboxService::class)->forUser($user)['total'])
+                : 0;
+            $view->with('inboxCount', $count);
         });
     }
 }
