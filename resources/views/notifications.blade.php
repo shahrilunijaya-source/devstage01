@@ -44,7 +44,7 @@
 <script>
 function markRead(id, btn) {
     fetch(`/notifications/${id}/read`, {
-        method: 'POST',
+        method: 'PATCH',
         headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' }
     }).then(() => {
         btn.closest('div[class*="bg-teal"]')?.classList.remove('bg-teal/5');

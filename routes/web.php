@@ -129,7 +129,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('notifications')->group(function () {
         Route::get('/', [NotificationController::class, 'index'])->name('notifications.index');
         Route::patch('/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
-        Route::post('/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
+        Route::post('/mark-all-read', [NotificationController::class, 'readAll'])->name('notifications.mark-all-read');
     });
 
     // Module 10: Workload

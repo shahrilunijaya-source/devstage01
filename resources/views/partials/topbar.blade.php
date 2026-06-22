@@ -16,6 +16,15 @@
     <div class="flex items-center gap-2 ml-auto">
         @auth
             @php($tbUser = auth()->user())
+            @php($tbUnread = $tbUser->notifications()->where('read', false)->count())
+            <a href="{{ route('notifications.index') }}" class="relative p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Notifications">
+                <svg class="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                </svg>
+                @if ($tbUnread > 0)
+                    <span class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-flag text-pine text-[10px] font-bold flex items-center justify-center">{{ $tbUnread > 99 ? '99+' : $tbUnread }}</span>
+                @endif
+            </a>
             <div x-data="{ open: false }" class="relative ml-1">
                 <button @click="open = !open"
                     class="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">
