@@ -18,8 +18,10 @@ use App\Models\User;
 use App\Services\Graph\ObjectGraphService;
 use App\Services\Knowledge\EvidenceIndexer;
 use App\Services\Rag\RagRetriever;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class EvidenceRagIndexTest extends TestCase
@@ -93,6 +95,29 @@ class EvidenceRagIndexTest extends TestCase
         // Retrieval substrate surfaces the evidence chunk for the owning project.
         $found = app(RagRetriever::class)->scopedChunks([$project->id], includeGlobal: false);
         $this->assertTrue($found->contains(fn (RagChunk $c) => $c->source_type === 'evidence'));
+    }
+
+    public function test_pdf_evidence_text_is_extracted_and_indexed(): void
+    {
+        $this->fakeVoyage();
+        Storage::fake('local');
+        [$session, $project] = $this->makeSession();
+
+        // Render a real PDF carrying known text, store it as the evidence file.
+        $pdf = Pdf::loadHTML('<p>Payroll is disbursed monthly by the 25th.</p>')->output();
+        Storage::put('evidence/spec.pdf', $pdf);
+
+        $evidence = app(ObjectGraphService::class)->create(
+            ObjectType::EVIDENCE, $project->tenant_id, $project->id, 'Spec PDF',
+            ['session_id' => $session->id, 'attributes' => ['mime' => 'application/pdf', 'path' => 'evidence/spec.pdf']],
+        );
+
+        $chunks = app(EvidenceIndexer::class)->index($evidence);
+
+        $this->assertGreaterThan(0, $chunks);
+        $chunk = RagChunk::where('source_type', 'evidence')->where('source_id', $evidence->id)->first();
+        $this->assertNotNull($chunk);
+        $this->assertStringContainsString('Payroll', $chunk->chunk_text);
     }
 
     public function test_reindex_replaces_prior_chunks_idempotently(): void

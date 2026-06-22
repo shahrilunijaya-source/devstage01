@@ -12,6 +12,7 @@ use App\Services\Rag\Chunker;
 use App\Services\Rag\VoyageClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Smalot\PdfParser\Parser;
 
 /**
  * Indexes session evidence into the RAG substrate so it is retrievable alongside
@@ -97,8 +98,8 @@ class EvidenceIndexer
 
     /**
      * Pull indexable text from an evidence object: its body for pasted evidence,
-     * or the stored file's contents when it is a readable text type. Binary
-     * documents (PDF, Office) need an extractor and are skipped for now.
+     * the stored file's contents for a readable text type, or extracted text for
+     * a PDF (when a parser is available). Other binary formats are skipped.
      */
     private function extractText(EngObject $evidence): string
     {
@@ -112,15 +113,25 @@ class EvidenceIndexer
         $path = $attributes['path'] ?? null;
         $mime = (string) ($attributes['mime'] ?? '');
 
-        if ($path === null || ! $this->isTextMime($mime)) {
+        if ($path === null) {
             return '';
         }
 
         try {
-            return trim((string) Storage::get($path));
+            if ($this->isTextMime($mime)) {
+                return trim((string) Storage::get($path));
+            }
+
+            if ($mime === 'application/pdf' && class_exists(Parser::class)) {
+                $bytes = Storage::get($path);
+
+                return $bytes === null ? '' : trim((new Parser)->parseContent($bytes)->getText());
+            }
         } catch (\Throwable) {
-            return '';
+            return ''; // unreadable/corrupt file → skip indexing, never break capture
         }
+
+        return '';
     }
 
     private function isTextMime(string $mime): bool
