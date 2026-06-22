@@ -1,9 +1,98 @@
-@import 'tailwindcss';
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-
-@theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+/* URSB base (Track design language) */
+body { background: #FAFAF7; }
+input, select, textarea {
+    font-family: 'Poppins', system-ui, sans-serif;
 }
+.nav-active {
+    @apply bg-teal/15 text-white relative;
+}
+.nav-active::before {
+    content: '';
+    @apply absolute left-0 top-0 bottom-0 w-0.5 bg-teal;
+}
+.btn-primary {
+    @apply bg-teal hover:bg-teal-700 text-white font-medium text-sm py-2 px-4 rounded-[10px] transition-colors inline-flex items-center gap-1.5;
+}
+.btn-secondary {
+    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm py-2 px-4 rounded-[10px] border border-gray-200 transition-colors inline-flex items-center gap-1.5;
+}
+.btn-pine {
+    @apply bg-pine hover:bg-pine-800 text-white font-medium text-sm py-2 px-4 rounded-[10px] transition-colors inline-flex items-center gap-1.5;
+}
+.btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-medium text-sm py-2 px-4 rounded-[10px] transition-colors inline-flex items-center gap-1.5;
+}
+.form-label {
+    @apply block text-[13px] font-medium text-gray-700 mb-1;
+}
+.form-input {
+    @apply w-full border border-gray-200 rounded-[10px] px-3.5 py-2.5 text-sm text-gray-900 focus:border-teal focus:ring-2 focus:ring-teal/15 outline-none transition-colors;
+}
+.form-select {
+    @apply w-full border border-gray-200 rounded-[10px] px-3.5 py-2.5 text-sm text-gray-900 focus:border-teal focus:ring-2 focus:ring-teal/15 outline-none transition-colors bg-white;
+}
+.form-textarea {
+    @apply w-full border border-gray-200 rounded-[10px] px-3.5 py-2.5 text-sm text-gray-900 focus:border-teal focus:ring-2 focus:ring-teal/15 outline-none transition-colors resize-y;
+}
+.stat-card {
+    @apply bg-white border border-gray-200 rounded-2xl p-5 shadow-sm;
+}
+.stat-value {
+    @apply text-3xl font-bold text-gray-900 tracking-tight leading-none;
+}
+.stat-label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-gray-500 mt-1.5;
+}
+.card {
+    @apply bg-white border border-gray-200 rounded-2xl shadow-sm;
+}
+.card-pad {
+    @apply p-5;
+}
+.section-title {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-gray-400;
+}
+.data-table {
+    @apply w-full;
+}
+.data-table th {
+    @apply px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500 bg-gray-50 border-b border-gray-200;
+}
+.data-table td {
+    @apply px-4 py-3 text-[13px] text-gray-700 border-b border-gray-50;
+}
+.data-table tbody tr:hover {
+    @apply bg-gray-50/50;
+}
+.data-table tbody tr:last-child td {
+    @apply border-b-0;
+}
+.badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold;
+}
+.badge-teal { @apply bg-teal/10 text-teal; }
+.badge-pine { @apply bg-pine/10 text-pine; }
+.badge-gray { @apply bg-gray-100 text-gray-600; }
+.badge-flag { @apply bg-flag/15 text-flag-500; }
+.badge-danger { @apply bg-red-50 text-red-600; }
+
+/* Native <dialog> centering + backdrop dim (Tailwind preflight strips defaults) */
+dialog[open] {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    max-width: min(92vw, 560px);
+    max-height: 90vh;
+    overflow: hidden;
+    border: 0;
+    background: #ffffff;
+    padding: 0;
+}
+dialog::backdrop {
+    background: rgba(15, 23, 42, 0.55);
+}
+[x-cloak]{display:none!important;}

@@ -13,6 +13,11 @@ use App\Models\Portfolio\Session;
 use App\Models\User;
 use App\Services\Graph\ObjectGraphService;
 use App\Services\Graph\TraceService;
+use App\Services\Session\Analysis\AnalysisResult;
+use App\Services\Session\Analysis\DeterministicEvidenceAnalyst;
+use App\Services\Session\Analysis\DraftedObject;
+use App\Services\Session\Analysis\EvidenceAnalyst;
+use App\Services\Session\Analysis\Exceptions\AnalysisException;
 use App\Services\Session\Exceptions\SessionEngineException;
 
 /**
@@ -29,6 +34,8 @@ class SessionEngineService
     public function __construct(
         private readonly ObjectGraphService $graph,
         private readonly TraceService $trace,
+        private readonly EvidenceAnalyst $analyst,
+        private readonly DeterministicEvidenceAnalyst $fallback,
     ) {}
 
     /**
@@ -54,32 +61,51 @@ class SessionEngineService
                 continue; // already analysed
             }
 
-            $finding = $this->graph->create(ObjectType::FINDING, (int) $evd->tenant_id, (int) $session->project_id, 'Finding: '.$evd->title, $scope + [
-                'body' => $evd->body,
-                'source' => $evd->ref,
-                'source_object_id' => $evd->id,
-                'status' => ObjectStatus::NEEDS_CONFIRMATION,
-                'confidence' => ConfidenceLevel::MEDIUM,
-                'impact' => 'medium',
-            ]);
+            $result = $this->draftFor($evd);
 
-            $requirement = $this->graph->create(ObjectType::BUSINESS_REQUIREMENT, (int) $evd->tenant_id, (int) $session->project_id, 'Draft requirement from '.$evd->ref, $scope + [
-                'body' => 'System shall address: '.($evd->title),
-                'source' => $finding->ref,
-                'source_object_id' => $finding->id,
-                'status' => ObjectStatus::NEEDS_CONFIRMATION,
-                'confidence' => ConfidenceLevel::LOW,
-                'impact' => 'high',
-            ]);
-
+            $finding = $this->materialize($result->finding, $evd, (int) $evd->tenant_id, (int) $session->project_id, $scope, $evd->ref, (int) $evd->id, $result->citations);
             $this->trace->link($evd, $finding, RelationType::DERIVED_FROM);
-            $this->trace->link($finding, $requirement, RelationType::DERIVED_FROM);
-            $drafted += 2;
+            $drafted++;
+
+            foreach ($result->requirements as $reqDraft) {
+                $requirement = $this->materialize($reqDraft, $evd, (int) $evd->tenant_id, (int) $session->project_id, $scope, $finding->ref, (int) $finding->id, $result->citations);
+                $this->trace->link($finding, $requirement, RelationType::DERIVED_FROM);
+                $drafted++;
+            }
         }
 
         $session->update(['phase' => 'firewall_review']);
 
         return $drafted;
+    }
+
+    /** Run the configured analyst, falling back to the deterministic one on failure. */
+    private function draftFor(EngObject $evidence): AnalysisResult
+    {
+        try {
+            return $this->analyst->analyze($evidence);
+        } catch (AnalysisException) {
+            return $this->fallback->analyze($evidence);
+        }
+    }
+
+    /**
+     * Turn an AI draft into a canonical object, citing its source (PRD §9.2).
+     *
+     * @param  array<string, mixed>  $scope
+     * @param  array<int, string>  $citations
+     */
+    private function materialize(DraftedObject $draft, EngObject $evidence, int $tenantId, int $projectId, array $scope, string $sourceRef, int $sourceObjectId, array $citations): EngObject
+    {
+        return $this->graph->create($draft->type, $tenantId, $projectId, $draft->title, $scope + [
+            'body' => $draft->body,
+            'source' => $sourceRef,
+            'source_object_id' => $sourceObjectId,
+            'status' => ObjectStatus::NEEDS_CONFIRMATION,
+            'confidence' => $draft->confidence,
+            'impact' => $draft->impact,
+            'attributes' => ['cites' => $citations],
+        ]);
     }
 
     /**
