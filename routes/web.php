@@ -17,6 +17,7 @@ use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\Project\CalendarController;
 use App\Http\Controllers\Project\ChatController;
 use App\Http\Controllers\ProjectKnowledgeController;
+use App\Http\Controllers\RtmController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StageController;
@@ -88,6 +89,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/portfolio/test-cases/{case}/results', [VerificationController::class, 'recordResult'])->name('verification.results.store');
     Route::post('/portfolio/test-cases/{case}/defects', [VerificationController::class, 'raiseDefect'])->name('verification.defects.store');
     Route::post('/portfolio/defects/{defect}/resolve', [VerificationController::class, 'resolveDefect'])->name('verification.defects.resolve');
+
+    // Requirements Traceability Matrix (PRD §17).
+    Route::get('/portfolio/projects/{project}/rtm', [RtmController::class, 'index'])->name('rtm.index');
+    Route::get('/portfolio/projects/{project}/rtm.csv', [RtmController::class, 'csv'])->name('rtm.csv');
+    Route::get('/portfolio/projects/{project}/rtm.pdf', [RtmController::class, 'pdf'])->name('rtm.pdf');
 
     Route::get('/portfolio/projects/{project}/changes', [ChangeRequestController::class, 'index'])->name('changes.index');
     Route::get('/portfolio/projects/{project}/objects', [ObjectController::class, 'index'])->name('objects.index');

@@ -11,6 +11,7 @@
             <p class="text-[13px] text-gray-500 mt-0.5">Every requirement proven by the test cases that verify it (PRD §17). Each test case and result is a traceable object.</p>
         </div>
         <div class="flex gap-2">
+            <a class="btn-secondary" href="{{ route('rtm.index', $project) }}">Traceability matrix</a>
             <a class="btn-secondary" href="{{ route('verification.csv', $project) }}">Export CSV</a>
             <a class="btn-secondary" href="{{ route('metrics.coverage', $project) }}">Coverage</a>
         </div>
