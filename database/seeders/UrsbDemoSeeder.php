@@ -6,6 +6,7 @@ use App\Enums\ObjectType;
 use App\Models\Acl\Role;
 use App\Models\Acl\ScopeBinding;
 use App\Models\Graph\EngObject;
+use App\Models\Knowledge\ProjectKnowledgeItem;
 use App\Models\Portfolio\Module;
 use App\Models\Portfolio\Session;
 use App\Models\Portfolio\Tenant;
@@ -155,6 +156,21 @@ class UrsbDemoSeeder extends Seeder
         app(BaselineService::class)->baseline($brs->fresh(), [
             'knowledge_book_version' => 'v2026.1',
             'approved_by' => $approver->id,
+        ]);
+
+        // A couple of project-knowledge entries so the assumptions/lessons log
+        // has demo content.
+        ProjectKnowledgeItem::create([
+            'tenant_id' => $tenant->id, 'project_id' => $project->id,
+            'item_type' => 'approved_assumption', 'status' => 'approved', 'approved_by' => $approver->id,
+            'title' => 'Payroll gateway vendor delivers the integration API by go-live.',
+            'body' => 'Assumed during BRS; revisit if vendor onboarding slips.',
+        ]);
+        ProjectKnowledgeItem::create([
+            'tenant_id' => $tenant->id, 'project_id' => $project->id,
+            'item_type' => 'lesson_learned', 'status' => 'approved', 'approved_by' => $approver->id,
+            'title' => 'Capture tender clauses as evidence before pre-analysis.',
+            'body' => 'Earlier evidence capture produced cleaner AI-drafted requirements.',
         ]);
 
         return $project;
