@@ -68,7 +68,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/portfolio/projects/{project}/knowledge', [KnowledgeController::class, 'show'])->name('knowledge.show');
     Route::get('/portfolio/projects/{project}/activity', [MetricsController::class, 'activity'])->name('metrics.activity');
     Route::get('/portfolio/projects/{project}/decisions', [MetricsController::class, 'decisions'])->name('metrics.decisions');
+    Route::get('/portfolio/projects/{project}/decisions.csv', [MetricsController::class, 'decisionsCsv'])->name('metrics.decisions.csv');
     Route::get('/portfolio/projects/{project}/risks', [MetricsController::class, 'risks'])->name('metrics.risks');
+    Route::get('/portfolio/projects/{project}/risks.csv', [MetricsController::class, 'risksCsv'])->name('metrics.risks.csv');
 
     Route::get('/portfolio/projects/{project}/changes', [ChangeRequestController::class, 'index'])->name('changes.index');
     Route::get('/portfolio/projects/{project}/objects', [ObjectController::class, 'index'])->name('objects.index');

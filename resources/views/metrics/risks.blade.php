@@ -10,7 +10,10 @@
             <h1 class="text-xl font-bold text-gray-900 tracking-tight">Risk register</h1>
             <p class="text-[13px] text-gray-500 mt-0.5">Every risk captured across the project, worst impact first (PRD §17). Each risk is a traceable object.</p>
         </div>
-        <a class="btn-secondary" href="{{ route('metrics.decisions', $project) }}">Decisions</a>
+        <div class="flex gap-2">
+            <a class="btn-secondary" href="{{ route('metrics.risks.csv', $project) }}">Export CSV</a>
+            <a class="btn-secondary" href="{{ route('metrics.decisions', $project) }}">Decisions</a>
+        </div>
     </div>
 
     @php

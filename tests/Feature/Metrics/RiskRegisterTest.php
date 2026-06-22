@@ -74,4 +74,26 @@ class RiskRegisterTest extends TestCase
 
         $this->actingAs($outsider)->get(route('metrics.risks', $project))->assertForbidden();
     }
+
+    public function test_csv_export_streams_risk_rows(): void
+    {
+        [$project, $pm] = $this->boundProject();
+        $this->risk($project, 'Exportable risk', 'high');
+
+        $response = $this->actingAs($pm)->get(route('metrics.risks.csv', $project));
+        $response->assertOk();
+        $this->assertStringContainsString('text/csv', (string) $response->headers->get('content-type'));
+
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('Impact', $csv);          // header row
+        $this->assertStringContainsString('Exportable risk', $csv); // data row
+    }
+
+    public function test_csv_export_denied_outside_scope(): void
+    {
+        [$project] = $this->boundProject();
+        $outsider = User::factory()->create(['role' => 'regular']);
+
+        $this->actingAs($outsider)->get(route('metrics.risks.csv', $project))->assertForbidden();
+    }
 }

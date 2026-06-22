@@ -10,7 +10,10 @@
             <h1 class="text-xl font-bold text-gray-900 tracking-tight">Decision register</h1>
             <p class="text-[13px] text-gray-500 mt-0.5">Every judgement call recorded during sessions (PRD §9). Each decision resolves a specific item and is traceable.</p>
         </div>
-        <a class="btn-secondary" href="{{ route('metrics.activity', $project) }}">Activity</a>
+        <div class="flex gap-2">
+            <a class="btn-secondary" href="{{ route('metrics.decisions.csv', $project) }}">Export CSV</a>
+            <a class="btn-secondary" href="{{ route('metrics.activity', $project) }}">Activity</a>
+        </div>
     </div>
 
     @if ($decisions->isEmpty())

@@ -14,6 +14,8 @@ use App\Services\Metrics\CoverageService;
 use App\Services\Metrics\MetricsService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Metrics & Quality Analytics dashboard (PRD §17). Read-only, ACL view-gated.
@@ -65,22 +67,25 @@ class MetricsController extends Controller
     {
         abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');
 
-        $user = $request->user();
-        $rank = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
-
-        $risks = EngObject::forProject($project->id)
-            ->where('type', ObjectType::RISK->value)
-            ->with('owner', 'sourceObject')
-            ->orderByDesc('id')
-            ->get()
-            ->filter(fn ($r) => $this->pdp->allows($user, 'view', $r))
-            ->sortBy(fn ($r) => $rank[$r->impact] ?? 4)
-            ->values();
-
         return view('metrics.risks', [
             'project' => $project,
-            'risks' => $risks,
+            'risks' => $this->riskObjects($project, $request->user()),
         ]);
+    }
+
+    /** Risk register as a CSV download. */
+    public function risksCsv(Request $request, Project $project): StreamedResponse
+    {
+        abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');
+
+        return $this->streamCsv(
+            "{$project->code}-risks.csv",
+            ['Ref', 'Impact', 'Risk', 'Status', 'Source', 'Owner'],
+            $this->riskObjects($project, $request->user())->map(fn (EngObject $r): array => [
+                $r->ref, $r->impact, $r->title, $r->status?->value,
+                $r->sourceObject?->ref ?? $r->source, $r->owner?->name,
+            ]),
+        );
     }
 
     /** Decision register — every DECISION object recorded for the project (PRD §9). */
@@ -88,19 +93,69 @@ class MetricsController extends Controller
     {
         abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');
 
-        $user = $request->user();
+        return view('metrics.decisions', [
+            'project' => $project,
+            'decisions' => $this->decisionObjects($project, $request->user()),
+        ]);
+    }
 
-        $decisions = EngObject::forProject($project->id)
+    /** Decision register as a CSV download. */
+    public function decisionsCsv(Request $request, Project $project): StreamedResponse
+    {
+        abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');
+
+        return $this->streamCsv(
+            "{$project->code}-decisions.csv",
+            ['Ref', 'Decision', 'Resolves', 'By', 'When'],
+            $this->decisionObjects($project, $request->user())->map(fn (EngObject $d): array => [
+                $d->ref, $d->title, $d->sourceObject?->ref ?? $d->source,
+                $d->owner?->name, optional($d->created_at)->toDateTimeString(),
+            ]),
+        );
+    }
+
+    /** RISK objects the user may view, worst impact first. */
+    private function riskObjects(Project $project, $user): Collection
+    {
+        $rank = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
+
+        return EngObject::forProject($project->id)
+            ->where('type', ObjectType::RISK->value)
+            ->with('owner', 'sourceObject')
+            ->orderByDesc('id')
+            ->get()
+            ->filter(fn ($r) => $this->pdp->allows($user, 'view', $r))
+            ->sortBy(fn ($r) => $rank[$r->impact] ?? 4)
+            ->values();
+    }
+
+    /** DECISION objects the user may view, newest first. */
+    private function decisionObjects(Project $project, $user): Collection
+    {
+        return EngObject::forProject($project->id)
             ->where('type', ObjectType::DECISION->value)
             ->with('owner', 'sourceObject')
             ->orderByDesc('id')
             ->get()
             ->filter(fn ($d) => $this->pdp->allows($user, 'view', $d))
             ->values();
+    }
 
-        return view('metrics.decisions', [
-            'project' => $project,
-            'decisions' => $decisions,
-        ]);
+    /**
+     * Stream a collection of rows as a CSV download.
+     *
+     * @param  array<int, string>  $headers
+     * @param  Collection<int, array<int, mixed>>  $rows
+     */
+    private function streamCsv(string $filename, array $headers, Collection $rows): StreamedResponse
+    {
+        return response()->streamDownload(function () use ($headers, $rows): void {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers);
+            foreach ($rows as $row) {
+                fputcsv($out, $row);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 }
