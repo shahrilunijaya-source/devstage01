@@ -6,6 +6,7 @@ namespace App\Models\Acl;
 
 use App\Models\Portfolio\Tenant;
 use App\Models\User;
+use App\Services\AccessControl\PolicyDecisionPoint;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,6 +29,15 @@ class ScopeBinding extends Model
         'ends_at' => 'datetime',
         'revoked_at' => 'datetime',
     ];
+
+    /** Any binding change invalidates the PDP's request-scoped binding cache. */
+    protected static function booted(): void
+    {
+        $flush = fn () => app(PolicyDecisionPoint::class)->flushScopeCache();
+
+        static::saved($flush);
+        static::deleted($flush);
+    }
 
     public function role(): BelongsTo
     {
