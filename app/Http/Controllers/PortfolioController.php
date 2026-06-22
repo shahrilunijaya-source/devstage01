@@ -58,6 +58,16 @@ class PortfolioController extends Controller
         ]);
     }
 
+    /** Focused "what's blocked" view across the user's projects (CLAUDE.md). */
+    public function blocked(Request $request, PortfolioDashboardService $dashboard): View
+    {
+        $blocked = $dashboard->forUser($request->user())
+            ->filter(fn (array $c): bool => $c['health'] === 'blocked' || $c['blockedStages'] > 0)
+            ->values();
+
+        return view('portfolio.blocked', ['blocked' => $blocked]);
+    }
+
     public function show(Request $request, Project $project, TraceService $trace): View
     {
         abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');

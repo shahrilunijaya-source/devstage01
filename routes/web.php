@@ -40,6 +40,7 @@ Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->
 Route::middleware('auth')->group(function () {
     Route::get('/portfolio', [PortfolioController::class, 'index'])->name('portfolio.index');
     Route::get('/portfolio/dashboard', [PortfolioController::class, 'dashboard'])->name('portfolio.dashboard');
+    Route::get('/portfolio/blocked', [PortfolioController::class, 'blocked'])->name('portfolio.blocked');
     Route::get('/portfolio/projects/create', [PortfolioController::class, 'createProject'])->name('portfolio.projects.create');
     Route::post('/portfolio/projects', [PortfolioController::class, 'storeProject'])->name('portfolio.projects.store');
     Route::get('/portfolio/projects/{project}', [PortfolioController::class, 'show'])->name('portfolio.show');

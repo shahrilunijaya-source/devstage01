@@ -20,6 +20,7 @@
             <p class="text-[13px] text-gray-500 mt-0.5">Live roll-up across every project you can see (PRD §5). Deliverables, lifecycle Gantt, baselines and open risks — all derived from the canonical model.</p>
         </div>
         <div class="flex gap-2">
+            <a class="btn-secondary" href="{{ route('portfolio.blocked') }}">What's blocked</a>
             <a class="btn-secondary" href="{{ route('portfolio.index') }}">Project list</a>
         </div>
     </div>
