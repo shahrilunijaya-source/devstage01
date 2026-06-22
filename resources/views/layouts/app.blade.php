@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'URSB') — URSB Platform</title>
+    <title>@yield('page-title', 'URSB') — URSB Platform</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -22,8 +22,13 @@
     @php($u = auth()->user())
     @include('partials.sidebar')
 
-    <!-- Main content -->
     <main :class="navCollapsed ? 'ml-16' : 'ml-60'" class="transition-[margin] duration-200 ease-out min-h-screen">
+        <header class="bg-white border-b border-gray-100 px-6 lg:px-8 py-5">
+            <h1 class="text-xl font-bold text-gray-900 tracking-tight">@yield('page-title', 'URSB')</h1>
+            @hasSection('page-sub')
+                <p class="text-[13px] text-gray-500 mt-0.5">@yield('page-sub')</p>
+            @endif
+        </header>
         <div class="max-w-7xl mx-auto px-6 lg:px-8 py-8">
             @if (session('status'))
                 <div class="mb-5 rounded-[10px] bg-teal/10 border border-teal/30 px-4 py-2.5 text-[13px] text-pine">{{ session('status') }}</div>

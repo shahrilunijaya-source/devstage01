@@ -79,14 +79,19 @@ class UrsbDemoSeeder extends Seeder
 
     private function seedUsers(Tenant $tenant, Project $project): void
     {
-        User::firstOrCreate(
+        User::updateOrCreate(
             ['email' => 'admin@ursb.test'],
-            ['name' => 'URSB Admin', 'role' => 'admin', 'password' => bcrypt('password'), 'email_verified_at' => now()],
+            ['name' => 'URSB Admin', 'role' => 'admin', 'system_role' => 'admin', 'password' => bcrypt('password'), 'email_verified_at' => now()],
         );
 
-        $pm = User::firstOrCreate(
+        User::updateOrCreate(
+            ['email' => 'director@ursb.test'],
+            ['name' => 'Acme Director', 'role' => 'regular', 'system_role' => 'director', 'password' => bcrypt('password'), 'email_verified_at' => now()],
+        );
+
+        $pm = User::updateOrCreate(
             ['email' => 'pm@ursb.test'],
-            ['name' => 'Acme PM', 'role' => 'regular', 'password' => bcrypt('password'), 'email_verified_at' => now()],
+            ['name' => 'Acme PM', 'role' => 'regular', 'system_role' => 'regular', 'password' => bcrypt('password'), 'email_verified_at' => now()],
         );
 
         // Bind the PM to the demo project so the ACL grants scoped access.

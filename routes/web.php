@@ -1,22 +1,23 @@
 <?php
 
-use App\Http\Controllers\FeedbackController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\PortfolioChatController;
-use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Admin\AclController;
+use App\Http\Controllers\Admin\FeedbackController as AdminFeedbackController;
+use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ChangeRequestController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\MetricsController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ObjectController;
+use App\Http\Controllers\PortfolioChatController;
 use App\Http\Controllers\PortfolioController;
+use App\Http\Controllers\Project\CalendarController;
+use App\Http\Controllers\Project\ChatController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StageController;
 use App\Http\Controllers\UrsbDashboardController;
 use App\Http\Controllers\WorkloadController;
-use App\Http\Controllers\Admin\FeedbackController as AdminFeedbackController;
-use App\Http\Controllers\Project\CalendarController;
-use App\Http\Controllers\Project\ChatController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -77,6 +78,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/admin/acl/delegate', [AclController::class, 'delegate'])->name('admin.acl.delegate');
     Route::post('/admin/acl/delegations/{delegation}/revoke', [AclController::class, 'revokeDelegation'])->name('admin.acl.delegation.revoke');
     Route::get('/admin/acl/audit', [AclController::class, 'audit'])->name('admin.acl.audit');
+
+    // Platform settings (API keys + feature flags).
+    Route::get('/admin/settings', [SettingsController::class, 'index'])->name('admin.settings.index');
+    Route::post('/admin/settings', [SettingsController::class, 'update'])->name('admin.settings.update');
 
     // Phase-1 graph verification view.
     Route::get('/ursb', [UrsbDashboardController::class, 'index'])->name('ursb.dashboard');

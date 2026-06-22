@@ -9,6 +9,7 @@
         "php": "^8.3",
         "anthropic-ai/sdk": "^0.30.0",
         "barryvdh/laravel-dompdf": "^3.1",
+        "blade-ui-kit/blade-heroicons": "2.7",
         "google/apiclient": "^2.19",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0"
