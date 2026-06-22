@@ -13,7 +13,7 @@
     <p class="text-[13px] text-gray-500 mb-6">
         {{ $project->tenant->name }} · {{ $project->name }} · {{ $baseline->stage->module->name }} ·
         {{ $baseline->stage->stage->label() }} · Knowledge Book {{ $baseline->knowledge_book_version ?? '—' }} ·
-        frozen {{ optional($baseline->approved_at)->toDayDateTimeString() }}
+        frozen {{ optional($baseline->approved_at)->toDayDateTimeString() }}@if($baseline->approver) · signed off by {{ $baseline->approver->name }}@endif
     </p>
 
     @forelse ($groups as $type => $items)

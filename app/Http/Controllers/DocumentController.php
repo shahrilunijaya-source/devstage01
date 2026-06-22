@@ -55,7 +55,7 @@ class DocumentController extends Controller
     /** @return array<string, mixed> */
     private function gather(Request $request, StageBaseline $baseline): array
     {
-        $baseline->load('stage.module', 'stage.project.tenant');
+        $baseline->load('stage.module', 'stage.project.tenant', 'approver');
         $project = $baseline->stage->project;
 
         abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');

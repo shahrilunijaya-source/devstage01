@@ -51,6 +51,11 @@ class UrsbDemoSeeder extends Seeder
         app(KnowledgeResolver::class)->pin($project, 'v2026.1');
 
         $module = Module::create(['project_id' => $project->id, 'name' => 'Payroll', 'code' => 'PAY']);
+        // DatabaseSeeder runs WithoutModelEvents, so the Module::created hook that
+        // auto-seeds stages may not fire — seed them explicitly (idempotent).
+        if ($module->stages()->count() === 0) {
+            $module->seedStages();
+        }
         $brs = $module->stages()->where('stage', 'BRS')->firstOrFail();
 
         $session = Session::create([
@@ -72,7 +77,16 @@ class UrsbDemoSeeder extends Seeder
         $trace->link($evd, $find, RelationType::DERIVED_FROM);
         $trace->link($find, $req, RelationType::DERIVED_FROM);
 
-        app(BaselineService::class)->baseline($brs->fresh(), ['knowledge_book_version' => 'v2026.1']);
+        // Admin signs off the baseline (idempotent; seedUsers reconciles the rest).
+        $approver = User::firstOrCreate(
+            ['email' => 'admin@ursb.test'],
+            ['name' => 'URSB Admin', 'role' => 'admin', 'password' => bcrypt('password'), 'email_verified_at' => now()],
+        );
+
+        app(BaselineService::class)->baseline($brs->fresh(), [
+            'knowledge_book_version' => 'v2026.1',
+            'approved_by' => $approver->id,
+        ]);
 
         return $project;
     }
@@ -81,17 +95,17 @@ class UrsbDemoSeeder extends Seeder
     {
         User::updateOrCreate(
             ['email' => 'admin@ursb.test'],
-            ['name' => 'URSB Admin', 'role' => 'admin', 'system_role' => 'admin', 'password' => bcrypt('password'), 'email_verified_at' => now()],
+            ['name' => 'URSB Admin', 'role' => 'admin', 'password' => bcrypt('password'), 'email_verified_at' => now()],
         );
 
         User::updateOrCreate(
             ['email' => 'director@ursb.test'],
-            ['name' => 'Acme Director', 'role' => 'regular', 'system_role' => 'director', 'password' => bcrypt('password'), 'email_verified_at' => now()],
+            ['name' => 'Acme Director', 'role' => 'regular', 'password' => bcrypt('password'), 'email_verified_at' => now()],
         );
 
         $pm = User::updateOrCreate(
             ['email' => 'pm@ursb.test'],
-            ['name' => 'Acme PM', 'role' => 'regular', 'system_role' => 'regular', 'password' => bcrypt('password'), 'email_verified_at' => now()],
+            ['name' => 'Acme PM', 'role' => 'regular', 'password' => bcrypt('password'), 'email_verified_at' => now()],
         );
 
         // Bind the PM to the demo project so the ACL grants scoped access.

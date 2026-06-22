@@ -19,6 +19,7 @@ enum RelationType: string
     case TRACES_TO = 'traces_to';
     case SUPERSEDES = 'supersedes';
     case MITIGATES = 'mitigates';
+    case APPROVES = 'approves';
 
     /** Human-readable relation label, e.g. "derived from". */
     public function label(): string

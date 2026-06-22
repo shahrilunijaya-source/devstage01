@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Graph;
 
+use App\Enums\ConfidenceLevel;
+use App\Enums\ObjectStatus;
+use App\Enums\ObjectType;
+use App\Enums\RelationType;
 use App\Models\Graph\BaselineObject;
 use App\Models\Graph\EngObject;
 use App\Models\Portfolio\Stage;
 use App\Models\Portfolio\StageBaseline;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,6 +21,11 @@ use Illuminate\Support\Facades\DB;
  */
 class BaselineService
 {
+    public function __construct(
+        private readonly ObjectGraphService $graph,
+        private readonly TraceService $trace,
+    ) {}
+
     /**
      * @param  array<string, mixed>  $opts  knowledge_book_version, approved_by, created_by
      */
@@ -26,6 +36,7 @@ class BaselineService
 
             $objects = EngObject::query()
                 ->where('stage_id', $stage->id)
+                ->where('type', '!=', ObjectType::APPROVAL->value) // sign-off records are not baseline members
                 ->where(function ($q) use ($approvedSessionIds): void {
                     $q->whereNull('session_id');
                     if ($approvedSessionIds !== []) {
@@ -74,7 +85,49 @@ class BaselineService
                 'gate_passed_at' => now(),
             ]);
 
+            $this->recordApproval($stage, $baseline, $objects, $opts['approved_by'] ?? null);
+
             return $baseline;
         });
+    }
+
+    /**
+     * Mint a first-class APPROVAL object capturing the sign-off, linked to every
+     * object it accepts (PRD §14). Skipped when no approver is known.
+     *
+     * @param  Collection<int, EngObject>  $objects
+     */
+    private function recordApproval(Stage $stage, StageBaseline $baseline, $objects, ?int $approvedBy): void
+    {
+        if ($approvedBy === null) {
+            return;
+        }
+
+        $approval = $this->graph->create(
+            ObjectType::APPROVAL,
+            (int) $stage->project->tenant_id,
+            (int) $stage->project_id,
+            "Sign-off: {$baseline->version_label}",
+            [
+                'module_id' => $stage->module_id,
+                'stage_id' => $stage->id,
+                'owner_user_id' => $approvedBy,
+                'source' => $baseline->version_label,
+                'status' => ObjectStatus::CONFIRMED_BY_EVIDENCE,
+                'confidence' => ConfidenceLevel::HIGH,
+                'body' => "Baseline {$baseline->version_label} accepted, freezing {$objects->count()} object(s).",
+                'attributes' => [
+                    'stage_baseline_id' => $baseline->id,
+                    'version_label' => $baseline->version_label,
+                    'object_count' => $objects->count(),
+                ],
+                'changed_by' => $approvedBy,
+                'change_summary' => 'sign-off recorded',
+            ],
+        );
+
+        foreach ($objects as $object) {
+            $this->trace->link($approval, $object, RelationType::APPROVES, null, $approvedBy);
+        }
     }
 }
