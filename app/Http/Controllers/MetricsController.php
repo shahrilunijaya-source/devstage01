@@ -60,6 +60,29 @@ class MetricsController extends Controller
         ]);
     }
 
+    /** Risk register — every RISK object for the project, worst impact first (PRD §17). */
+    public function risks(Request $request, Project $project): View
+    {
+        abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');
+
+        $user = $request->user();
+        $rank = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
+
+        $risks = EngObject::forProject($project->id)
+            ->where('type', ObjectType::RISK->value)
+            ->with('owner', 'sourceObject')
+            ->orderByDesc('id')
+            ->get()
+            ->filter(fn ($r) => $this->pdp->allows($user, 'view', $r))
+            ->sortBy(fn ($r) => $rank[$r->impact] ?? 4)
+            ->values();
+
+        return view('metrics.risks', [
+            'project' => $project,
+            'risks' => $risks,
+        ]);
+    }
+
     /** Decision register — every DECISION object recorded for the project (PRD §9). */
     public function decisions(Request $request, Project $project): View
     {
