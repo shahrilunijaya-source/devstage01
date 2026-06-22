@@ -75,6 +75,24 @@ class InboxTest extends TestCase
         $this->assertSame(3, $inbox['total']);
     }
 
+    public function test_stage_scoped_validator_sees_the_in_stage_session(): void
+    {
+        [$project, $module] = $this->scenario();
+        $stage = $module->stages()->where('stage', 'BRS')->firstOrFail();
+
+        // Bound only at stage scope (not project) — must still see that stage's work.
+        $stageUser = User::factory()->create(['role' => 'regular']);
+        ScopeBinding::create([
+            'user_id' => $stageUser->id, 'role_id' => Role::where('key', 'project_pm')->whereNull('tenant_id')->value('id'),
+            'tenant_id' => $project->tenant_id, 'scope_type' => 'stage', 'scope_id' => $stage->id,
+        ]);
+
+        $inbox = app(InboxService::class)->forUser($stageUser);
+
+        $this->assertCount(1, $inbox['firewall']);
+        $this->assertCount(1, $inbox['approval']);
+    }
+
     public function test_member_without_validate_or_approve_sees_empty_inbox(): void
     {
         [, , , $member] = $this->scenario();
