@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ChangeRequestController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FeedbackController;
+use App\Http\Controllers\InboxController;
 use App\Http\Controllers\KnowledgeController;
 use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\NotificationController;
@@ -98,7 +99,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/admin/settings', [SettingsController::class, 'update'])->name('admin.settings.update');
     });
 
-    // Cross-project object search.
+    // Cross-project action inbox + object search.
+    Route::get('/inbox', [InboxController::class, 'index'])->name('inbox');
     Route::get('/search', [SearchController::class, 'index'])->name('search');
 
     // Phase-1 graph verification view.
