@@ -12,6 +12,7 @@ use App\Services\AccessControl\PolicyDecisionPoint;
 use App\Services\Graph\ObjectGraphService;
 use App\Services\Knowledge\EvidenceIndexer;
 use App\Services\Knowledge\KnowledgeResolver;
+use App\Services\NotificationService;
 use App\Services\Session\ConflictDetectionService;
 use App\Services\Session\Exceptions\SessionEngineException;
 use App\Services\Session\SessionEngineService;
@@ -144,11 +145,18 @@ class SessionController extends Controller
         return $this->guard($session, fn () => $this->engine->startSession($session), 'Session started.');
     }
 
-    public function scanConflicts(Request $request, Session $session, ConflictDetectionService $detector): RedirectResponse
+    public function scanConflicts(Request $request, Session $session, ConflictDetectionService $detector, NotificationService $notifications): RedirectResponse
     {
         $this->authorizeEdit($request, $session);
 
         $count = $detector->scan($session, $request->user()->id);
+
+        if ($count > 0) {
+            $notifications->notifyProjectBindings(
+                $session->project, 'conflict_detected',
+                "{$count} conflict group(s) flagged in session \"{$session->title}\" — resolve before approval.",
+            );
+        }
 
         return $this->back($session, $count === 0
             ? 'Conflict scan complete — no conflicting requirements found.'
@@ -162,12 +170,23 @@ class SessionController extends Controller
         return $this->guard($session, fn () => $this->engine->consolidate($session), 'Session consolidated — ready for approval.');
     }
 
-    public function approve(Request $request, Session $session): RedirectResponse
+    public function approve(Request $request, Session $session, NotificationService $notifications): RedirectResponse
     {
         abort_unless($this->pdp->can($request->user(), 'approve', $session->project)->permitted, 403, 'Access denied by ACL.');
 
-        return $this->guard($session, fn () => $this->engine->approveSession($session, $request->user()),
-            'Session approved. Its objects can now be rolled into the stage baseline.');
+        try {
+            $this->engine->approveSession($session, $request->user());
+        } catch (SessionEngineException $e) {
+            return $this->back($session, $e->getMessage(), true);
+        }
+
+        $notifications->notifyProjectBindings(
+            $session->project, 'session_approved',
+            "Session \"{$session->title}\" approved — ready for baseline.",
+            $request->user()->id,
+        );
+
+        return $this->back($session, 'Session approved. Its objects can now be rolled into the stage baseline.');
     }
 
     public function capture(Request $request, Session $session, EngObject $object): RedirectResponse

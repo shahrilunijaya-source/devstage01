@@ -2,12 +2,37 @@
 
 namespace App\Services;
 
+use App\Models\Acl\ScopeBinding;
+use App\Models\ClaimMilestone;
 use App\Models\Notification;
 use App\Models\Project;
 use App\Models\User;
+use App\Models\WbsItem;
 
 class NotificationService
 {
+    /**
+     * Notify every user holding an active ACL binding that covers the project —
+     * project-scoped or tenant-scoped — optionally excluding the actor who
+     * triggered the event. This is the URSB-native audience (scope bindings),
+     * distinct from notifyProjectTeam() which uses the legacy assignment pivot.
+     */
+    public function notifyProjectBindings(Project $project, string $type, string $message, ?int $exceptUserId = null): void
+    {
+        $userIds = ScopeBinding::active()
+            ->where(function ($q) use ($project): void {
+                $q->where(fn ($w) => $w->where('scope_type', 'project')->where('scope_id', $project->id))
+                    ->orWhere(fn ($w) => $w->where('scope_type', 'tenant')->where('tenant_id', $project->tenant_id));
+            })
+            ->pluck('user_id')
+            ->unique()
+            ->reject(fn ($id): bool => $exceptUserId !== null && (int) $id === $exceptUserId);
+
+        foreach ($userIds as $userId) {
+            $this->notify((int) $userId, $type, $message, $project->id);
+        }
+    }
+
     /**
      * Notify all users with specific roles on a project.
      */
@@ -133,7 +158,7 @@ class NotificationService
         $today = now()->startOfDay();
 
         // Find all WBS items that are overdue (planned_end < today, no actual_end, is_leaf)
-        $overdueTasks = \App\Models\WbsItem::query()
+        $overdueTasks = WbsItem::query()
             ->where('is_leaf', true)
             ->where('planned_end', '<', $today)
             ->whereNull('actual_end')
@@ -178,7 +203,7 @@ class NotificationService
         $sevenDaysFromNow = $today->copy()->addDays(7);
 
         // Find claim milestones due within 7 days
-        $claimsDue = \App\Models\ClaimMilestone::query()
+        $claimsDue = ClaimMilestone::query()
             ->whereBetween('target_date', [$today, $sevenDaysFromNow])
             ->whereNotIn('claim_status', ['received', 'cancelled'])
             ->with('project')
