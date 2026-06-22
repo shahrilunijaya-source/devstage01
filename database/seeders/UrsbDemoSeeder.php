@@ -40,6 +40,61 @@ class UrsbDemoSeeder extends Seeder
         }
 
         $this->seedUsers($tenant, $project);
+        $this->seedSecondProject();
+    }
+
+    /**
+     * A second tenant + project in a different lifecycle state, so the portfolio
+     * dashboard shows multiple projects with varied health and tenant isolation
+     * is demonstrable (a PM bound to one tenant cannot see the other).
+     */
+    private function seedSecondProject(): void
+    {
+        $tenant = Tenant::firstOrCreate(
+            ['slug' => 'petron-tl'],
+            ['name' => 'Petron TL', 'type' => 'agency', 'status' => 'active'],
+        );
+
+        $project = Project::where('tenant_id', $tenant->id)->where('code', 'PTR')->first();
+
+        if ($project === null) {
+            $project = Project::create([
+                'tenant_id' => $tenant->id, 'name' => 'Petron Retail Ops', 'code' => 'PTR', 'status' => 'active',
+            ]);
+
+            app(KnowledgeResolver::class)->pin($project, 'v2026.1');
+
+            $module = Module::create(['project_id' => $project->id, 'name' => 'Station Ops', 'code' => 'STN']);
+            if ($module->stages()->count() === 0) {
+                $module->seedStages();
+            }
+
+            // Mid-flight: BRS underway, URS blocked → dashboard health "blocked".
+            $module->stages()->where('stage', 'BRS')->update(['status' => 'in_progress', 'started_at' => now()]);
+            $module->stages()->where('stage', 'URS')->update(['status' => 'blocked', 'started_at' => now()]);
+
+            $brs = $module->stages()->where('stage', 'BRS')->firstOrFail();
+            $session = Session::create([
+                'stage_id' => $brs->id, 'module_id' => $module->id, 'project_id' => $project->id,
+                'title' => 'Station BRS — Session 1', 'process' => 'Fuel reconciliation',
+                'domain' => 'Retail', 'location' => 'Site 12', 'status' => 'draft', 'phase' => 'pre_analysis',
+            ]);
+
+            $graph = app(ObjectGraphService::class);
+            $scope = ['module_id' => $module->id, 'stage_id' => $brs->id, 'session_id' => $session->id];
+            $graph->create(ObjectType::EVIDENCE, $tenant->id, $project->id, 'Site survey notes', $scope + [
+                'body' => 'Manual dip readings reconcile against pump totals nightly.',
+            ]);
+            $graph->create(ObjectType::RISK, $tenant->id, $project->id, 'Legacy POS lacks an export API', $scope + [
+                'body' => 'Integration may require a manual nightly export until the POS is upgraded.',
+                'impact' => 'high',
+            ]);
+
+            // Draft hypotheses but leave the session mid-review (not approved/baselined).
+            app(SessionEngineService::class)->preAnalyze($session->fresh());
+        }
+
+        $this->seedSecondUser($tenant, $project);
     }
 
     private function buildDemoProject(Tenant $tenant): Project
@@ -123,6 +178,22 @@ class UrsbDemoSeeder extends Seeder
         );
 
         // Bind the PM to the demo project so the ACL grants scoped access.
+        ScopeBinding::firstOrCreate([
+            'user_id' => $pm->id,
+            'role_id' => Role::where('key', 'project_pm')->whereNull('tenant_id')->value('id'),
+            'scope_type' => 'project',
+            'scope_id' => $project->id,
+        ], ['tenant_id' => $tenant->id]);
+    }
+
+    /** A PM scoped to the second tenant only — proves cross-tenant isolation. */
+    private function seedSecondUser(Tenant $tenant, Project $project): void
+    {
+        $pm = User::updateOrCreate(
+            ['email' => 'pm2@ursb.test'],
+            ['name' => 'Petron PM', 'role' => 'regular', 'system_role' => 'regular', 'password' => bcrypt('password'), 'email_verified_at' => now()],
+        );
+
         ScopeBinding::firstOrCreate([
             'user_id' => $pm->id,
             'role_id' => Role::where('key', 'project_pm')->whereNull('tenant_id')->value('id'),
