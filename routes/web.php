@@ -9,6 +9,7 @@ use App\Http\Controllers\DesignController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\InboxController;
+use App\Http\Controllers\IssueController;
 use App\Http\Controllers\KnowledgeController;
 use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\NotificationController;
@@ -100,6 +101,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/portfolio/projects/{project}/prototype', [PrototypeController::class, 'index'])->name('prototype.index');
     Route::post('/portfolio/objects/{requirement}/prototype', [PrototypeController::class, 'store'])->name('prototype.store');
     Route::post('/portfolio/prototype-elements/{element}/state', [PrototypeController::class, 'setState'])->name('prototype.state');
+
+    // Project issue log (PRD §17).
+    Route::get('/portfolio/projects/{project}/issues', [IssueController::class, 'index'])->name('issues.index');
+    Route::post('/portfolio/projects/{project}/issues', [IssueController::class, 'store'])->name('issues.store');
+    Route::post('/portfolio/issues/{issue}/resolve', [IssueController::class, 'resolve'])->name('issues.resolve');
 
     // Requirements Traceability Matrix (PRD §17).
     Route::get('/portfolio/projects/{project}/rtm', [RtmController::class, 'index'])->name('rtm.index');

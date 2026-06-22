@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\Design\DesignService;
 use App\Services\Graph\BaselineService;
 use App\Services\Graph\ObjectGraphService;
+use App\Services\Issue\IssueService;
 use App\Services\Knowledge\KnowledgeResolver;
 use App\Services\Knowledge\KnowledgeSeeder;
 use App\Services\Prototype\PrototypeService;
@@ -112,6 +113,14 @@ class UrsbDemoSeeder extends Seeder
                 $case = $verification->addTestCase($requirement, 'Reconcile a nightly fuel export', 'Export one night of POS totals; assert they match pump dips.', $approver);
                 $verification->recordResult($case, 'fail', 'Legacy POS has no export API — reconciliation could not run.', $approver);
                 $verification->raiseDefect($case, 'Legacy POS lacks an export API', 'Blocks automated nightly reconciliation; manual export needed until POS upgrade.', $approver);
+
+                app(IssueService::class)->raise(
+                    $project,
+                    'POS vendor has not confirmed the upgrade timeline',
+                    'Reconciliation automation is blocked until the POS export API ships.',
+                    'high',
+                    $approver,
+                );
             }
         }
 
