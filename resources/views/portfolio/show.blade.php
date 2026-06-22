@@ -17,6 +17,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
             <a class="btn-secondary" href="{{ route('objects.index', $project) }}">Browse objects</a>
+            <a class="btn-secondary" href="{{ route('knowledge.show', $project) }}">Knowledge</a>
             <a class="btn-secondary" href="{{ route('metrics.show', $project) }}">Metrics</a>
             <a class="btn-secondary" href="{{ route('metrics.coverage', $project) }}">Coverage</a>
             <a class="btn-secondary" href="{{ route('changes.index', $project) }}">Change requests</a>

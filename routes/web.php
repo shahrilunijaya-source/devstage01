@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ChangeRequestController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FeedbackController;
+use App\Http\Controllers\KnowledgeController;
 use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ObjectController;
@@ -60,6 +61,7 @@ Route::middleware('auth')->group(function () {
     // Change Management Engine (PRD §9.3.3).
     Route::get('/portfolio/projects/{project}/metrics', [MetricsController::class, 'show'])->name('metrics.show');
     Route::get('/portfolio/projects/{project}/coverage', [MetricsController::class, 'coverage'])->name('metrics.coverage');
+    Route::get('/portfolio/projects/{project}/knowledge', [KnowledgeController::class, 'show'])->name('knowledge.show');
 
     Route::get('/portfolio/projects/{project}/changes', [ChangeRequestController::class, 'index'])->name('changes.index');
     Route::get('/portfolio/projects/{project}/objects', [ObjectController::class, 'index'])->name('objects.index');
