@@ -8,6 +8,7 @@ use App\Enums\ObjectType;
 use App\Models\Acl\Role;
 use App\Models\Acl\ScopeBinding;
 use App\Models\Graph\EngObject;
+use App\Models\Notification;
 use App\Models\Portfolio\Module;
 use App\Models\Portfolio\Session;
 use App\Models\Portfolio\Stage;
@@ -81,5 +82,18 @@ class StageGateTest extends TestCase
         $outsider = User::factory()->create(['role' => 'regular']);
 
         $this->actingAs($outsider)->get(route('stages.gate', $stage))->assertForbidden();
+    }
+
+    public function test_blocking_a_stage_escalates_to_directors_and_team(): void
+    {
+        [, $stage, $pm] = $this->readySession();
+        $director = User::factory()->create(['role' => 'regular', 'system_role' => 'director', 'active' => true]);
+
+        $this->actingAs($pm)->post(route('stages.status', $stage), [
+            'status' => 'blocked', 'reason' => 'Awaiting client sign-off',
+        ])->assertRedirect(route('stages.gate', $stage));
+
+        $this->assertSame('blocked', $stage->fresh()->status);
+        $this->assertSame(1, Notification::where('user_id', $director->id)->where('type', 'stage_blocked')->count());
     }
 }

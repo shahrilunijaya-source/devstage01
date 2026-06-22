@@ -60,6 +60,7 @@ Route::middleware('auth')->group(function () {
 
     // Baselining + generated documents (PRD §9.7, §14).
     Route::get('/portfolio/stages/{stage}/gate', [StageController::class, 'gate'])->name('stages.gate');
+    Route::post('/portfolio/stages/{stage}/status', [StageController::class, 'status'])->name('stages.status');
     Route::post('/portfolio/stages/{stage}/baseline', [StageController::class, 'baseline'])->name('stages.baseline');
     Route::get('/portfolio/baselines/{baseline}', [DocumentController::class, 'baseline'])->name('baselines.show');
     Route::get('/portfolio/baselines/{baseline}/pdf', [DocumentController::class, 'baselinePdf'])->name('baselines.pdf');

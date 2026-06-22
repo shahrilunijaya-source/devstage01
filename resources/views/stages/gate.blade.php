@@ -37,6 +37,28 @@
             </div>
         @endif
 
+        @if ($canEdit && ! $baselined)
+            <form method="POST" action="{{ route('stages.status', $stage) }}" class="card card-pad mb-6">
+                @csrf
+                <div class="flex flex-wrap items-end gap-3">
+                    <div>
+                        <label class="form-label">Set status</label>
+                        <select name="status" class="form-select">
+                            <option value="not_started" @selected($stage->status === 'not_started')>Not started</option>
+                            <option value="in_progress" @selected($stage->status === 'in_progress')>In progress</option>
+                            <option value="blocked" @selected($stage->status === 'blocked')>Blocked</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="form-label">Reason (for blocking)</label>
+                        <input type="text" name="reason" maxlength="255" class="form-input" placeholder="Why is it blocked…">
+                    </div>
+                    <button type="submit" class="btn-secondary">Update status</button>
+                </div>
+                <p class="text-[12px] text-gray-400 mt-2">Setting a stage to <strong>blocked</strong> immediately notifies directors and the project team.</p>
+            </form>
+        @endif
+
         <h2 class="section-title mb-2">Hard conditions</h2>
         <div class="card overflow-hidden mb-6">
             <table class="data-table">

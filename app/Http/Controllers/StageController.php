@@ -64,7 +64,49 @@ class StageController extends Controller
             'criteria' => $criteria,
             'ready' => $hasApproved && $unresolved === 0 && ! $baselined,
             'canBaseline' => $this->pdp->can($request->user(), 'baseline', $project)->permitted,
+            'canEdit' => $this->pdp->can($request->user(), 'edit', $project)->permitted,
         ]);
+    }
+
+    /** Statuses a user may set by hand (baselined is reached only via baseline()). */
+    private const MANUAL_STATUSES = ['not_started', 'in_progress', 'blocked'];
+
+    /**
+     * Set a stage's working status (PRD §5). Moving a stage TO blocked escalates
+     * immediately to directors + the project team (CLAUDE.md escalation rule).
+     */
+    public function status(Request $request, Stage $stage, NotificationService $notifications): RedirectResponse
+    {
+        $project = $stage->project;
+        abort_unless($this->pdp->can($request->user(), 'edit', $project)->permitted, 403, 'Access denied by ACL.');
+
+        if ($stage->status === 'baselined') {
+            return redirect()->route('stages.gate', $stage)
+                ->with('error', 'A baselined stage is frozen; raise a change request instead.');
+        }
+
+        $data = $request->validate([
+            'status' => ['required', 'in:'.implode(',', self::MANUAL_STATUSES)],
+            'reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $wasBlocked = $stage->status === 'blocked';
+
+        $stage->update([
+            'status' => $data['status'],
+            'started_at' => $stage->started_at ?? ($data['status'] === 'in_progress' ? now() : $stage->started_at),
+        ]);
+
+        if ($data['status'] === 'blocked' && ! $wasBlocked) {
+            $label = $stage->stage->label();
+            $reason = filled($data['reason'] ?? null) ? " Reason: {$data['reason']}" : '';
+            $message = "BLOCKED: {$label} stage in \"{$project->name}\".{$reason}";
+
+            $notifications->notifyDirectors('stage_blocked', $message, $project->id);
+            $notifications->notifyProjectBindings($project, 'stage_blocked', $message, $request->user()->id);
+        }
+
+        return redirect()->route('stages.gate', $stage)->with('status', 'Stage status updated.');
     }
 
     public function baseline(Request $request, Stage $stage, BaselineService $baselines, KnowledgeResolver $knowledge, NotificationService $notifications): RedirectResponse
