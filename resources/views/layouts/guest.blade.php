@@ -11,9 +11,17 @@
 </head>
 <body class="font-sans antialiased">
 <div class="min-h-screen grid lg:grid-cols-2">
-    <!-- Left: pine dark panel -->
-    <div class="bg-pine hidden lg:flex flex-col justify-between p-16">
-        <div>
+    <!-- Left: atmospheric pine panel -->
+    <div class="relative hidden lg:flex flex-col justify-between p-16 overflow-hidden"
+         style="background:linear-gradient(160deg,#06504b 0%,#003d3a 55%,#01302d 100%);">
+        <!-- aurora glow -->
+        <div class="absolute inset-0 pointer-events-none"
+             style="background:radial-gradient(40rem 28rem at 15% 0%, rgba(0,184,169,0.28), transparent 60%),radial-gradient(36rem 26rem at 90% 100%, rgba(167,139,250,0.16), transparent 55%);"></div>
+        <!-- subtle grid texture -->
+        <div class="absolute inset-0 opacity-[0.06] pointer-events-none"
+             style="background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);background-size:42px 42px;"></div>
+
+        <div class="relative">
             <div class="text-white font-bold text-2xl tracking-tight">
                 URS<span class="text-teal">B</span>
             </div>
@@ -21,25 +29,34 @@
                 Requirement-to-Prototype Platform
             </div>
             @unless(app()->environment('production'))
-                <span class="inline-block mt-2 px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-bold uppercase tracking-widest rounded">
+                <span class="inline-block mt-3 px-2 py-0.5 bg-white/10 ring-1 ring-white/20 text-white/80 text-[9px] font-bold uppercase tracking-widest rounded-full">
                     {{ app()->environment() }}
                 </span>
             @endunless
         </div>
-        <div>
-            <p class="text-white/70 text-sm leading-relaxed max-w-xs">
-                Evidence to findings to baselined requirements — one traceable object graph from BRS to working prototype.
+
+        <div class="relative">
+            <h2 class="text-white text-[28px] font-bold leading-tight tracking-tight max-w-md">
+                One traceable object graph,<br><span class="text-teal">evidence to prototype.</span>
+            </h2>
+            <p class="text-white/55 text-sm leading-relaxed max-w-sm mt-4">
+                Capture evidence, draft requirements with AI, validate, baseline, and prove every requirement end-to-end — with deny-by-default access at every seam.
             </p>
-            <div class="flex gap-2 mt-6">
-                <span class="w-2 h-2 rounded-full bg-teal"></span>
-                <span class="w-2 h-2 rounded-full bg-white/30"></span>
-                <span class="w-2 h-2 rounded-full bg-white/30"></span>
+            <div class="flex flex-wrap gap-x-5 gap-y-2 mt-7">
+                @foreach (['Object graph', 'AI pre-analysis', 'Traceability matrix', 'Verification & defects'] as $feat)
+                    <div class="flex items-center gap-2 text-white/70 text-[13px]">
+                        <span class="w-1.5 h-1.5 rounded-full bg-teal"></span>{{ $feat }}
+                    </div>
+                @endforeach
             </div>
         </div>
+
+        <div class="relative text-white/30 text-[11px] tracking-wide">© {{ date('Y') }} URSB Platform · Unijaya</div>
     </div>
+
     <!-- Right: light panel -->
-    <div class="bg-paper flex items-center justify-center p-8 sm:p-16">
-        <div class="w-full max-w-sm">
+    <div class="flex items-center justify-center p-8 sm:p-16">
+        <div class="w-full max-w-sm animate-rise">
             @yield('content')
         </div>
     </div>

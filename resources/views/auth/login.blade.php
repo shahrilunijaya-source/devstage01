@@ -58,9 +58,9 @@
             </label>
         </div>
 
-        <button type="submit"
-                class="w-full bg-teal hover:bg-teal-700 text-white font-semibold text-sm py-2.5 rounded-[10px] transition-colors mt-2">
+        <button type="submit" class="btn-primary w-full justify-center py-2.5 mt-2 text-[14px]">
             Sign in
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5-5 5M5 12h13"/></svg>
         </button>
     </form>
 

@@ -2,7 +2,8 @@
     $u = auth()->user();
 @endphp
 <aside :class="navCollapsed ? 'w-16 is-collapsed' : 'w-60'"
-       class="fixed inset-y-0 left-0 bg-pine flex flex-col z-50 transition-[width] duration-200 ease-out">
+       class="fixed inset-y-0 left-0 flex flex-col z-50 transition-[width] duration-200 ease-out"
+       style="background:linear-gradient(168deg,#06504b 0%,#003d3a 48%,#012f2c 100%);box-shadow:1px 0 0 rgba(255,255,255,0.04),8px 0 32px -16px rgba(0,0,0,0.4);">
     <!-- Brand -->
     <div class="border-b border-white/10 flex items-center justify-between gap-2 px-4 pt-5 pb-4">
         <a href="{{ route('portfolio.index') }}" class="text-white font-bold text-lg tracking-tight" x-show="!navCollapsed" x-cloak>
