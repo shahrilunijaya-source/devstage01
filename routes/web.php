@@ -8,6 +8,7 @@ use App\Http\Controllers\ChangeRequestController;
 use App\Http\Controllers\DesignController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\FeedbackController;
+use App\Http\Controllers\GuideController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\IssueController;
 use App\Http\Controllers\KnowledgeController;
@@ -139,6 +140,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/admin/settings', [SettingsController::class, 'index'])->name('admin.settings.index');
         Route::post('/admin/settings', [SettingsController::class, 'update'])->name('admin.settings.update');
     });
+
+    // How to Use — static onboarding guide with workflow diagram.
+    Route::get('/guide', [GuideController::class, 'index'])->name('guide.index');
 
     // Cross-project action inbox + object search.
     Route::get('/inbox', [InboxController::class, 'index'])->name('inbox');

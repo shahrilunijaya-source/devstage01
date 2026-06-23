@@ -3,7 +3,7 @@
 @section('content')
     <div class="mb-6">
         <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Sign in</h2>
-        <p class="text-[13px] text-gray-500 mt-1">Enter your credentials to access the URSB Platform</p>
+        <p class="text-[13px] text-gray-500 mt-1">Enter your credentials to access DevStage01</p>
     </div>
 
     @if (session('status'))

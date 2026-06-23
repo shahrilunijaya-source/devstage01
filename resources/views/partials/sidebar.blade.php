@@ -37,8 +37,12 @@
                 ['route' => 'inbox', 'active' => request()->routeIs('inbox'), 'label' => 'Inbox', 'icon' => 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'],
                 ['route' => 'portfolio.index', 'active' => request()->routeIs('portfolio.index') || request()->routeIs('portfolio.show'), 'label' => 'Portfolio', 'icon' => 'M3 7h18M3 12h18M3 17h18'],
                 ['route' => 'portfolio.dashboard', 'active' => request()->routeIs('portfolio.dashboard'), 'label' => 'Dashboard', 'icon' => 'M4 5h6v6H4zM14 5h6v4h-6zM14 13h6v6h-6zM4 15h6v4H4z'],
-                ['route' => 'ursb.dashboard', 'active' => request()->routeIs('ursb.*'), 'label' => 'Object Graph', 'icon' => 'M5 7a2 2 0 100-4 2 2 0 000 4zM19 21a2 2 0 100-4 2 2 0 000 4zM6 6l12 12'],
+                ['route' => 'guide.index', 'active' => request()->routeIs('guide.index'), 'label' => 'How to Use', 'icon' => 'M12 9v2m0 4h.01M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zM12 17a5 5 0 100-10 5 5 0 000 10z'],
             ];
+            // Object Graph = admin-only Phase-1 inspector (UrsbDashboardController aborts 403 for non-admins). Only surface it to admins.
+            if ($u->isAdmin()) {
+                $links[] = ['route' => 'ursb.dashboard', 'active' => request()->routeIs('ursb.*'), 'label' => 'Object Graph', 'icon' => 'M5 7a2 2 0 100-4 2 2 0 000 4zM19 21a2 2 0 100-4 2 2 0 000 4zM6 6l12 12'];
+            }
         @endphp
         @foreach ($links as $link)
             <a href="{{ route($link['route']) }}"

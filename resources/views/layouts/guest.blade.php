@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Sign in') — URSB Platform</title>
+    <title>@unless(app()->environment('production'))[{{ strtoupper(app()->environment()) }}] @endunless@yield('title', 'Sign in') — DevStage01</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -23,13 +23,13 @@
 
         <div class="relative">
             <div class="text-white font-bold text-2xl tracking-tight">
-                URS<span class="text-teal">B</span>
+                DevStage<span class="text-teal">01</span>
             </div>
             <div class="text-white/40 text-xs font-semibold uppercase tracking-widest mt-1">
                 Requirement-to-Prototype Platform
             </div>
             @unless(app()->environment('production'))
-                <span class="inline-block mt-3 px-2 py-0.5 bg-white/10 ring-1 ring-white/20 text-white/80 text-[9px] font-bold uppercase tracking-widest rounded-full">
+                <span class="inline-block mt-3 px-2 py-0.5 bg-red-500 text-white text-[9px] font-bold uppercase tracking-widest rounded">
                     {{ app()->environment() }}
                 </span>
             @endunless
@@ -51,7 +51,7 @@
             </div>
         </div>
 
-        <div class="relative text-white/30 text-[11px] tracking-wide">© {{ date('Y') }} URSB Platform · Unijaya</div>
+        <div class="relative text-white/30 text-[11px] tracking-wide">© {{ date('Y') }} DevStage01 · Unijaya</div>
     </div>
 
     <!-- Right: light panel -->

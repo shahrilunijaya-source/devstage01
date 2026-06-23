@@ -34,7 +34,7 @@
     <div class="meta">{{ $project->tenant->name }} · {{ $project->name }} ({{ $project->code }})</div>
 </header>
 <footer>
-    URSB Platform · Generated view of the canonical model · {{ $generatedBy }} · {{ $generatedAt->toDayDateTimeString() }}
+    DevStage01 · Generated view of the canonical model · {{ $generatedBy }} · {{ $generatedAt->toDayDateTimeString() }}
     · Page <span class="pagenum"></span>
 </footer>
 

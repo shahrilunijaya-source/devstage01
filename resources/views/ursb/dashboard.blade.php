@@ -3,7 +3,7 @@
 @section('content')
     <div class="flex items-center justify-between mb-6">
         <div>
-            <h1 class="text-xl font-bold text-gray-900 tracking-tight">URSB — Requirement-to-Prototype Platform</h1>
+            <h1 class="text-xl font-bold text-gray-900 tracking-tight">DevStage01 — Requirement-to-Prototype Platform</h1>
             <p class="text-[13px] text-gray-500 mt-0.5">Phase 1 Foundation · live canonical model · read-only verification view</p>
         </div>
     </div>

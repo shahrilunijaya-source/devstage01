@@ -33,7 +33,7 @@
         {{ $baseline->stage->module->name }} · {{ $baseline->stage->stage->label() }} stage baseline</div>
 </header>
 <footer>
-    URSB Platform · Generated view of the canonical model · Knowledge Book {{ $baseline->knowledge_book_version ?? '—' }}
+    DevStage01 · Generated view of the canonical model · Knowledge Book {{ $baseline->knowledge_book_version ?? '—' }}
     · Page <span class="pagenum"></span>
 </footer>
 

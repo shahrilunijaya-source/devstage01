@@ -69,17 +69,24 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // "What's New" feed: the newest release drives the hub modal and the
-        // sidebar unseen badge. The release row is global, so cache the lookup
-        // briefly; the unseen check is a cheap per-user string compare. Wrapped
-        // so a missing releases table (early migrations) never breaks rendering.
-        View::composer(['layouts.ursb', 'layouts.app', 'partials.sidebar'], function ($view): void {
-            $latest = Cache::remember('release_current', 300, function (): ?Release {
+        // sidebar unseen badge. The hub modal needs the live model (methods +
+        // notes), so we memoize the query for the duration of the request rather
+        // than caching the serialized Eloquent model across requests — a stale
+        // cross-request cache deserializes to __PHP_Incomplete_Class and throws
+        // on property access. One indexed single-row lookup per request is cheap.
+        // Wrapped so a missing releases table (early migrations) never breaks render.
+        $latestRelease = null;
+        $latestResolved = false;
+        View::composer(['layouts.ursb', 'layouts.app', 'partials.sidebar'], function ($view) use (&$latestRelease, &$latestResolved): void {
+            if (! $latestResolved) {
                 try {
-                    return Release::current();
+                    $latestRelease = Release::current();
                 } catch (\Throwable) {
-                    return null;
+                    $latestRelease = null;
                 }
-            });
+                $latestResolved = true;
+            }
+            $latest = $latestRelease;
 
             $user = auth()->user();
             $unseen = $latest !== null

@@ -7,7 +7,7 @@
                 <p class="text-[12px] text-gray-500 mt-0.5 truncate">@yield('page-sub')</p>
             @endif
         @else
-            <h1 class="text-[15px] font-semibold text-gray-900 truncate">@yield('title', 'URSB')</h1>
+            <h1 class="text-[15px] font-semibold text-gray-900 truncate">@yield('title', 'DevStage01')</h1>
         @endif
     </div>
 
