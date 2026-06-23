@@ -46,6 +46,12 @@ input, select, textarea { font-family: 'Poppins', system-ui, sans-serif; }
 *::-webkit-scrollbar-thumb { background: rgba(16, 31, 29, 0.16); border-radius: 9999px; border: 2px solid transparent; background-clip: content-box; }
 *::-webkit-scrollbar-thumb:hover { background: rgba(16, 31, 29, 0.28); background-clip: content-box; }
 
+/* Component classes live in the components layer so single-class utilities
+   (w-[140px], flex-1, py-1, …) correctly override them. Without the @layer
+   wrapper these bare rules sit AFTER the utilities import and silently win,
+   which collapsed inline-form fields (e.g. a 900px select beside a 30px input). */
+@layer components {
+
 /* ---------- Sidebar nav ---------- */
 .nav-active { @apply text-white relative; background: linear-gradient(90deg, rgba(0,184,169,0.22), rgba(0,184,169,0.06)); }
 .nav-active::before { content: ''; @apply absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-teal; box-shadow: 0 0 12px rgba(0,184,169,0.7); }
@@ -143,6 +149,8 @@ a.stat-card:hover::after { opacity: 1; }
 
 /* ---------- Page header helper ---------- */
 .page-title { @apply text-xl font-bold tracking-tight; color: var(--ink); }
+
+} /* end @layer components */
 
 /* ---------- Native <dialog> ---------- */
 dialog[open] {
