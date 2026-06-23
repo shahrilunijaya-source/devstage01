@@ -36,6 +36,25 @@ class TraceService
     }
 
     /**
+     * Snapshot the whole project graph into memory (2 queries) so many objects
+     * can be walked without per-object DB access. Use when walking more than a
+     * couple of start nodes (matrix/coverage registers).
+     */
+    public function projectReach(int $projectId): TraceReach
+    {
+        $objects = EngObject::where('project_id', $projectId)->get()->keyBy('id')->all();
+
+        $out = [];
+        $in = [];
+        foreach (TraceRelationship::where('project_id', $projectId)->get(['from_object_id', 'to_object_id']) as $edge) {
+            $out[$edge->from_object_id][] = $edge->to_object_id;
+            $in[$edge->to_object_id][] = $edge->from_object_id;
+        }
+
+        return new TraceReach($objects, $out, $in);
+    }
+
+    /**
      * Forward traceability: objects reachable by following outgoing edges,
      * depth-first, in visit order (excludes the start object).
      *
@@ -61,37 +80,48 @@ class TraceService
      */
     private function walk(EngObject $start, string $direction): array
     {
-        $visited = [$start->id => true];
-        $result = [];
-        $queue = [$start];
-
         // Traceability never crosses a project boundary — scope every hop to the
         // start object's project so a stray cross-project/tenant edge can't leak
         // foreign objects into a walk (and its exports).
         $projectId = $start->project_id;
 
-        while ($queue !== []) {
-            $current = array_shift($queue);
+        $visited = [$start->id => true];
+        $result = [];
+        $frontier = [$start->id];
 
+        // Breadth-first by FRONTIER: one edge query + one node query per depth
+        // level (2 × depth) instead of one EngObject::find() per node (O(N)).
+        // Walks are shallow, so this collapses the per-requirement matrix/coverage
+        // explosions from hundreds of queries to a handful.
+        while ($frontier !== []) {
             $edges = ($direction === 'forward'
-                ? TraceRelationship::where('from_object_id', $current->id)
-                : TraceRelationship::where('to_object_id', $current->id))
+                ? TraceRelationship::whereIn('from_object_id', $frontier)
+                : TraceRelationship::whereIn('to_object_id', $frontier))
                 ->where('project_id', $projectId)
-                ->get();
+                ->get(['from_object_id', 'to_object_id']);
 
+            $nextIds = [];
             foreach ($edges as $edge) {
                 $nextId = $direction === 'forward' ? $edge->to_object_id : $edge->from_object_id;
-
-                if (isset($visited[$nextId])) {
-                    continue;
+                if (! isset($visited[$nextId])) {
+                    $visited[$nextId] = true;
+                    $nextIds[] = $nextId;
                 }
+            }
 
-                $visited[$nextId] = true;
-                $next = EngObject::where('project_id', $projectId)->find($nextId);
+            if ($nextIds === []) {
+                break;
+            }
 
-                if ($next !== null) {
-                    $result[] = $next;
-                    $queue[] = $next;
+            $objects = EngObject::where('project_id', $projectId)
+                ->whereIn('id', $nextIds)->get()->keyBy('id');
+
+            $frontier = [];
+            foreach ($nextIds as $nextId) {           // preserve discovery order
+                $obj = $objects->get($nextId);
+                if ($obj !== null) {                  // skip soft-deleted nodes, don't expand them
+                    $result[] = $obj;
+                    $frontier[] = $nextId;
                 }
             }
         }

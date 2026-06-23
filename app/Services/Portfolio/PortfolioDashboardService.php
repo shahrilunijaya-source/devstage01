@@ -39,7 +39,7 @@ class PortfolioDashboardService
             return collect();
         }
 
-        $projects = Project::with(['tenant', 'modules.stages'])
+        $projects = Project::with(['tenant', 'modules.stages.baselines'])
             ->whereIn('id', $allowedIds)
             ->orderBy('name')
             ->get();

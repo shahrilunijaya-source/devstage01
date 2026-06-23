@@ -59,10 +59,14 @@ class RtmService
         $verification = collect($verificationRows ?? $this->verification->register($project)['rows'])
             ->keyBy(fn (array $row): int => (int) $row['requirement']->id);
 
-        $rows = $requirements->map(function (EngObject $req) use ($verification): array {
+        // Snapshot the trace graph once (2 queries) and walk it in memory per
+        // requirement — instead of a fresh DB walk for every requirement.
+        $reach = $this->trace->projectReach($project->id);
+
+        $rows = $requirements->map(function (EngObject $req) use ($verification, $reach): array {
             // Both support (evidence/findings) and design (which SATISFIES the
             // requirement) point INTO the requirement, so both are reverse reach.
-            $upstream = collect($this->trace->reverseTrace($req));
+            $upstream = collect($reach->reverse($req));
 
             $support = $upstream
                 ->filter(fn (EngObject $o): bool => in_array($o->type, self::SUPPORT_TYPES, true))

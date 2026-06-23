@@ -17,6 +17,7 @@ use App\Services\Graph\TraceService;
 use App\Services\Verification\RtmService;
 use App\Services\Verification\VerificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class RtmTest extends TestCase
@@ -109,6 +110,31 @@ class RtmTest extends TestCase
 
         $row = app(RtmService::class)->matrix($projectA)['rows']->first();
         $this->assertNotContains($evidenceB->ref, $row['support']->all());
+    }
+
+    public function test_matrix_does_not_scale_trace_queries_with_requirement_count(): void
+    {
+        [$project, $pm] = $this->boundProject();
+        $trace = app(TraceService::class);
+        for ($i = 0; $i < 8; $i++) {
+            $req = $this->object($project, ObjectType::FUNCTIONAL_REQUIREMENT, "Req {$i}");
+            $ev = $this->object($project, ObjectType::EVIDENCE, "Ev {$i}");
+            $find = $this->object($project, ObjectType::FINDING, "Find {$i}");
+            $trace->link($ev, $find, RelationType::DERIVED_FROM);
+            $trace->link($find, $req, RelationType::DERIVED_FROM);
+        }
+
+        $traceQueries = 0;
+        DB::listen(function ($q) use (&$traceQueries): void {
+            if (str_contains($q->sql, 'trace_relationships')) {
+                $traceQueries++;
+            }
+        });
+
+        app(RtmService::class)->matrix($project);
+
+        // One snapshot of edges for the whole project, not one walk per requirement.
+        $this->assertLessThanOrEqual(2, $traceQueries, "Expected a single graph snapshot, got {$traceQueries} trace queries for 8 requirements.");
     }
 
     public function test_index_renders_for_pm(): void
