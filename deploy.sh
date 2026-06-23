@@ -33,10 +33,14 @@ php artisan migrate --force
 # Sync release feed ("What's New")
 php artisan releases:sync || true
 
-# Build front-end assets if a build pipeline is present
-if [ -f package.json ]; then
+# Build front-end assets ONLY if Node is available on this host.
+# Hostinger shared SSH has no Node — assets are built locally and the
+# compiled public/build directory is committed, so the server skips this.
+if [ -f package.json ] && command -v npm >/dev/null 2>&1; then
     npm ci --no-audit --no-fund || npm install --no-audit --no-fund
     npm run build
+else
+    echo "==> Skipping asset build (no npm on host; using committed public/build)"
 fi
 
 # Cache framework config for speed
