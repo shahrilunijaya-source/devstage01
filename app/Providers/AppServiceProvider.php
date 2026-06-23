@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\Release;
 use App\Services\InboxService;
 use App\Services\MonthlyReportService;
 use App\Services\NotificationService;
@@ -65,6 +66,28 @@ class AppServiceProvider extends ServiceProvider
                 ? Cache::remember("inbox_count:{$user->id}", 60, fn (): int => app(InboxService::class)->forUser($user)['total'])
                 : 0;
             $view->with('inboxCount', $count);
+        });
+
+        // "What's New" feed: the newest release drives the hub modal and the
+        // sidebar unseen badge. The release row is global, so cache the lookup
+        // briefly; the unseen check is a cheap per-user string compare. Wrapped
+        // so a missing releases table (early migrations) never breaks rendering.
+        View::composer(['layouts.ursb', 'layouts.app', 'partials.sidebar'], function ($view): void {
+            $latest = Cache::remember('release_current', 300, function (): ?Release {
+                try {
+                    return Release::current();
+                } catch (\Throwable) {
+                    return null;
+                }
+            });
+
+            $user = auth()->user();
+            $unseen = $latest !== null
+                && $user !== null
+                && $user->last_seen_version !== $latest->version;
+
+            $view->with('latestRelease', $latest);
+            $view->with('releaseUnseen', $unseen);
         });
     }
 }

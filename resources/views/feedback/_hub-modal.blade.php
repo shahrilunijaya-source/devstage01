@@ -135,7 +135,9 @@
                 @endif
             </div>
             <div class="px-6 py-4 border-t border-gray-100 flex justify-end">
-                <a href="#" class="text-teal text-[12px] font-medium hover:text-teal-700">View all updates →</a>
+                @if(\Illuminate\Support\Facades\Route::has('releases.index'))
+                <a href="{{ route('releases.index') }}" class="text-teal text-[12px] font-medium hover:text-teal-700">View all updates →</a>
+                @endif
             </div>
         </div>
     </div>

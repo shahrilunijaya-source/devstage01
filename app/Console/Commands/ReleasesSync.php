@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Release;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 
 class ReleasesSync extends Command
@@ -59,6 +60,10 @@ class ReleasesSync extends Command
 
             $synced++;
         }
+
+        // Drop the cached "current release" so the What's New badge reflects this
+        // sync on the very next request (see AppServiceProvider view composer).
+        Cache::forget('release_current');
 
         $this->info("Synced {$synced} release(s) from changelog.json.");
 
@@ -120,6 +125,8 @@ class ReleasesSync extends Command
 
                 $synced++;
             }
+
+            Cache::forget('release_current');
 
             $this->info("Synced {$synced} release(s) from git tags.");
 

@@ -20,6 +20,7 @@ use App\Http\Controllers\Project\CalendarController;
 use App\Http\Controllers\Project\ChatController;
 use App\Http\Controllers\ProjectKnowledgeController;
 use App\Http\Controllers\PrototypeController;
+use App\Http\Controllers\ReleaseController;
 use App\Http\Controllers\RtmController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SessionController;
@@ -172,6 +173,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/attachments/{attachment}', [FeedbackController::class, 'download'])->name('feedback.attachments.download');
         Route::get('/{feedback}', [FeedbackController::class, 'show'])->name('feedback.show');
     });
+
+    // What's New — release feed. Rows auto-populate from commits (releases:sync).
+    Route::get('/updates', [ReleaseController::class, 'index'])->name('releases.index');
+    Route::post('/releases/seen', [ReleaseController::class, 'seen'])->name('releases.seen');
 
     // Module 8: Notifications
     Route::prefix('notifications')->group(function () {
