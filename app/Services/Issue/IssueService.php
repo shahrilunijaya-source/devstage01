@@ -76,6 +76,12 @@ class IssueService
     public function resolve(EngObject $issue, ?string $note, User $user): EngObject
     {
         $attributes = $issue->getAttribute('attributes') ?? [];
+
+        // Already resolved → no-op (audit integrity: don't overwrite the note).
+        if (($attributes['state'] ?? 'open') === 'resolved') {
+            return $issue;
+        }
+
         $attributes['state'] = 'resolved';
         $attributes['resolution'] = $note;
 

@@ -196,6 +196,13 @@ class VerificationService
     public function resolveDefect(EngObject $defect, ?string $note, User $user): EngObject
     {
         $attributes = ($defect->getAttribute('attributes') ?? []);
+
+        // Already resolved → no-op, so a stored resolution note can't be silently
+        // overwritten after the fact (audit integrity).
+        if (($attributes['state'] ?? 'open') === 'resolved') {
+            return $defect;
+        }
+
         $attributes['state'] = 'resolved';
         $attributes['resolution'] = $note;
 
@@ -224,7 +231,8 @@ class VerificationService
             ->whereIn('to_object_id', $caseIds)
             ->get();
 
-        $defects = EngObject::whereIn('id', $edges->pluck('from_object_id')->unique()->all())
+        $defects = EngObject::forProject($project->id)
+            ->whereIn('id', $edges->pluck('from_object_id')->unique()->all())
             ->where('type', ObjectType::DEFECT->value)
             ->get()->keyBy('id');
 
@@ -281,7 +289,8 @@ class VerificationService
             ->whereIn('to_object_id', $caseIds)
             ->get();
 
-        $results = EngObject::whereIn('id', $edges->pluck('from_object_id')->unique()->all())
+        $results = EngObject::forProject($project->id)
+            ->whereIn('id', $edges->pluck('from_object_id')->unique()->all())
             ->where('type', ObjectType::TEST_RESULT->value)
             ->get()->keyBy('id');
 

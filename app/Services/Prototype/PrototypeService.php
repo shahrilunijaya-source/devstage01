@@ -159,7 +159,8 @@ class PrototypeService
             return [];
         }
 
-        $elements = EngObject::whereIn('id', $edges->pluck('from_object_id')->unique()->all())
+        $elements = EngObject::forProject($project->id)
+            ->whereIn('id', $edges->pluck('from_object_id')->unique()->all())
             ->where('type', ObjectType::PROTOTYPE_ELEMENT->value)
             ->get()->keyBy('id');
 

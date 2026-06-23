@@ -76,6 +76,18 @@ class IssueTest extends TestCase
         $this->assertSame('resolved', $issue->fresh()->getAttribute('attributes')['state']);
     }
 
+    public function test_resolving_already_resolved_issue_is_noop(): void
+    {
+        [$project, $pm] = $this->boundProject();
+        $service = app(IssueService::class);
+        $issue = $service->raise($project, 'Temp issue', null, 'medium', $pm);
+
+        $service->resolve($issue, 'genuine resolution', $pm);
+        $service->resolve($issue, 'tampered note', $pm);
+
+        $this->assertSame('genuine resolution', $issue->fresh()->getAttribute('attributes')['resolution']);
+    }
+
     public function test_raise_via_http(): void
     {
         [$project, $pm] = $this->boundProject();

@@ -65,12 +65,19 @@ class TraceService
         $result = [];
         $queue = [$start];
 
+        // Traceability never crosses a project boundary — scope every hop to the
+        // start object's project so a stray cross-project/tenant edge can't leak
+        // foreign objects into a walk (and its exports).
+        $projectId = $start->project_id;
+
         while ($queue !== []) {
             $current = array_shift($queue);
 
-            $edges = $direction === 'forward'
-                ? TraceRelationship::where('from_object_id', $current->id)->get()
-                : TraceRelationship::where('to_object_id', $current->id)->get();
+            $edges = ($direction === 'forward'
+                ? TraceRelationship::where('from_object_id', $current->id)
+                : TraceRelationship::where('to_object_id', $current->id))
+                ->where('project_id', $projectId)
+                ->get();
 
             foreach ($edges as $edge) {
                 $nextId = $direction === 'forward' ? $edge->to_object_id : $edge->from_object_id;
@@ -80,7 +87,7 @@ class TraceService
                 }
 
                 $visited[$nextId] = true;
-                $next = EngObject::find($nextId);
+                $next = EngObject::where('project_id', $projectId)->find($nextId);
 
                 if ($next !== null) {
                     $result[] = $next;

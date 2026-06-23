@@ -128,7 +128,8 @@ class DesignService
             return [];
         }
 
-        $designs = EngObject::whereIn('id', $edges->pluck('from_object_id')->unique()->all())
+        $designs = EngObject::forProject($project->id)
+            ->whereIn('id', $edges->pluck('from_object_id')->unique()->all())
             ->whereIn('type', array_map(fn (ObjectType $t): string => $t->value, array_values(self::DESIGN_TYPES)))
             ->get()->keyBy('id');
 

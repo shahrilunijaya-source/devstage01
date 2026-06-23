@@ -43,15 +43,20 @@ class RtmService
         private readonly VerificationService $verification,
     ) {}
 
-    /** @return array<string, mixed> */
-    public function matrix(Project $project): array
+    /**
+     * @param  iterable<int, array<string, mixed>>|null  $verificationRows  pass an
+     *                                                                      already-computed V&V register to avoid recomputing it (the lifecycle
+     *                                                                      summary needs both and would otherwise run register() twice).
+     * @return array<string, mixed>
+     */
+    public function matrix(Project $project, ?iterable $verificationRows = null): array
     {
         $requirements = EngObject::forProject($project->id)
             ->whereIn('type', self::REQUIREMENT_TYPES)
             ->orderBy('ref')->get();
 
         // V&V register, indexed by requirement id for O(1) lookup.
-        $verification = collect($this->verification->register($project)['rows'])
+        $verification = collect($verificationRows ?? $this->verification->register($project)['rows'])
             ->keyBy(fn (array $row): int => (int) $row['requirement']->id);
 
         $rows = $requirements->map(function (EngObject $req) use ($verification): array {

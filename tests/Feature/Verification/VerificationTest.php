@@ -181,6 +181,23 @@ class VerificationTest extends TestCase
         $this->assertSame('resolved', $defect->fresh()->getAttribute('attributes')['state']);
     }
 
+    public function test_resolving_already_resolved_defect_is_noop(): void
+    {
+        [$project, $pm] = $this->boundProject();
+        $req = $this->requirement($project);
+        $service = app(VerificationService::class);
+        $case = $service->addTestCase($req, 'A case', null, $pm);
+        $defect = $service->raiseDefect($case, 'Bug', null, $pm);
+
+        $service->resolveDefect($defect, 'genuine resolution', $pm);
+        $versionAfterFirst = $defect->fresh()->current_version;
+        $service->resolveDefect($defect, 'tampered note', $pm);
+
+        // Second resolve is a no-op: note preserved, no new version written.
+        $this->assertSame('genuine resolution', $defect->fresh()->getAttribute('attributes')['resolution']);
+        $this->assertSame($versionAfterFirst, $defect->fresh()->current_version);
+    }
+
     public function test_raise_defect_via_http_is_validate_gated(): void
     {
         [$project, $member] = $this->boundProject('project_member');

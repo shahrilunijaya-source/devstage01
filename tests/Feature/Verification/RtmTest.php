@@ -95,6 +95,22 @@ class RtmTest extends TestCase
         $this->assertSame(1, $matrix['summary']['broken']);
     }
 
+    public function test_trace_does_not_cross_project_boundary(): void
+    {
+        [$projectA] = $this->boundProject();
+        $projectB = Project::create(['tenant_id' => Tenant::default()->id, 'name' => 'B', 'code' => 'B', 'status' => 'active']);
+
+        $reqA = $this->object($projectA, ObjectType::FUNCTIONAL_REQUIREMENT, 'Requirement A');
+        $evidenceB = $this->object($projectB, ObjectType::EVIDENCE, 'Foreign evidence');
+
+        // A cross-project edge (its project_id resolves to B) must not be walked
+        // when building project A's matrix.
+        app(TraceService::class)->link($evidenceB, $reqA, RelationType::DERIVED_FROM);
+
+        $row = app(RtmService::class)->matrix($projectA)['rows']->first();
+        $this->assertNotContains($evidenceB->ref, $row['support']->all());
+    }
+
     public function test_index_renders_for_pm(): void
     {
         [$project, $pm] = $this->boundProject();
