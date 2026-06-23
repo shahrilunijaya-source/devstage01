@@ -41,7 +41,7 @@
     @endif
 
     <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-5">
-        <div class="stat-card"><div class="stat-value">{{ $summary['verified_pct'] }}%</div><div class="stat-label">Verified</div></div>
+        <div class="stat-card"><div class="stat-value">{{ $summary['verified_pct'] }}%</div><div class="stat-label">Verified</div><x-meter :value="$summary['verified_pct']" color="pine" class="mt-3" /></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['failing'] }}</div><div class="stat-label">Failing</div></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['unverified'] }}</div><div class="stat-label">Unverified</div></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['open_defects'] }}</div><div class="stat-label">Open defects</div></div>

@@ -25,13 +25,22 @@
         };
     @endphp
 
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
-        <div class="stat-card"><div class="stat-value">{{ $summary['traced_pct'] }}%</div><div class="stat-label">Fully traced</div></div>
-        <div class="stat-card"><div class="stat-value">{{ $summary['traced'] }}</div><div class="stat-label">Traced</div></div>
-        <div class="stat-card"><div class="stat-value">{{ $summary['unsupported'] }}</div><div class="stat-label">Unsupported</div></div>
-        <div class="stat-card"><div class="stat-value">{{ $summary['broken'] }}</div><div class="stat-label">Broken</div></div>
-        <div class="stat-card"><div class="stat-value">{{ $summary['unverified'] }}</div><div class="stat-label">Unverified</div></div>
-        <div class="stat-card"><div class="stat-value">{{ $summary['pending'] }}</div><div class="stat-label">Pending</div></div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+        <div class="stat-card flex flex-col justify-center">
+            <div class="stat-value text-4xl">{{ $summary['traced_pct'] }}%</div>
+            <div class="stat-label">Fully traced</div>
+            <x-meter :value="$summary['traced_pct']" color="pine" height="h-2" class="mt-3" />
+        </div>
+        <div class="card card-pad lg:col-span-2 flex flex-col justify-center">
+            <div class="section-title mb-3">Requirement traceability mix · {{ $summary['requirements'] }} total</div>
+            <x-stack-bar :segments="[
+                ['label' => 'Traced', 'count' => $summary['traced'], 'fill' => '#003d3a'],
+                ['label' => 'Pending', 'count' => $summary['pending'], 'fill' => '#00b8a9'],
+                ['label' => 'Unverified', 'count' => $summary['unverified'], 'fill' => '#f59e0b'],
+                ['label' => 'Broken', 'count' => $summary['broken'], 'fill' => '#dc2626'],
+                ['label' => 'Unsupported', 'count' => $summary['unsupported'], 'fill' => '#9ca3af'],
+            ]" />
+        </div>
     </div>
 
     @if ($rows->isEmpty())

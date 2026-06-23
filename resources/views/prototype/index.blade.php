@@ -28,7 +28,7 @@
     @endphp
 
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <div class="stat-card"><div class="stat-value">{{ $summary['demoed_pct'] }}%</div><div class="stat-label">Demoed</div></div>
+        <div class="stat-card"><div class="stat-value">{{ $summary['demoed_pct'] }}%</div><div class="stat-label">Demoed</div><x-meter :value="$summary['demoed_pct']" color="pine" class="mt-3" /></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['in_progress'] }}</div><div class="stat-label">In progress</div></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['not_started'] }}</div><div class="stat-label">Not started</div></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['elements'] }}</div><div class="stat-label">Elements</div></div>

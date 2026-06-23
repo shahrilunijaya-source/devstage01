@@ -52,6 +52,7 @@
                 <a href="{{ route($route, $project) }}" class="stat-card hover:border-teal transition-colors">
                     <div class="stat-value">{{ $pct }}%</div>
                     <div class="stat-label">{{ $label }}</div>
+                    <x-meter :value="$pct" :color="$pct >= 100 ? 'pine' : 'teal'" class="mt-3" />
                 </a>
             @endforeach
             <a href="{{ route('verification.index', $project) }}" class="stat-card hover:border-teal transition-colors">

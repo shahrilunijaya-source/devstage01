@@ -19,6 +19,7 @@
         <div class="stat-card">
             <div class="stat-value">{{ $summary['coverage_pct'] }}%</div>
             <div class="stat-label">Requirement coverage</div>
+            <x-meter :value="$summary['coverage_pct']" :color="$summary['coverage_pct'] >= 100 ? 'pine' : 'teal'" class="mt-3" />
         </div>
         <div class="stat-card">
             <div class="stat-value {{ $summary['uncovered'] > 0 ? 'text-flag-500' : '' }}">{{ $summary['uncovered'] }}</div>

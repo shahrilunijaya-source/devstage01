@@ -22,7 +22,7 @@
     @endphp
 
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <div class="stat-card"><div class="stat-value">{{ $summary['designed_pct'] }}%</div><div class="stat-label">Designed</div></div>
+        <div class="stat-card"><div class="stat-value">{{ $summary['designed_pct'] }}%</div><div class="stat-label">Designed</div><x-meter :value="$summary['designed_pct']" class="mt-3" /></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['undesigned'] }}</div><div class="stat-label">Undesigned</div></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['requirements'] }}</div><div class="stat-label">Requirements</div></div>
         <div class="stat-card"><div class="stat-value">{{ $summary['designs'] }}</div><div class="stat-label">Design objects</div></div>
