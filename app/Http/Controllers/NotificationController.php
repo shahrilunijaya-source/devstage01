@@ -16,7 +16,7 @@ class NotificationController extends Controller
 
         if ($request->expectsJson() || $request->query('_format') === 'json') {
             return response()->json([
-                'data' => $notifications->map(fn($n) => [
+                'data' => $notifications->map(fn ($n) => [
                     'id' => $n->id,
                     'message' => $n->message,
                     'type' => $n->type,
