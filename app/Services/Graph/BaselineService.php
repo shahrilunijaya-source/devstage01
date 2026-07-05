@@ -4,10 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services\Graph;
 
+use App\Enums\ConfidenceLevel;
+use App\Enums\ObjectStatus;
+use App\Enums\ObjectType;
+use App\Enums\RelationType;
+use App\Models\AuditLog;
 use App\Models\Graph\BaselineObject;
 use App\Models\Graph\EngObject;
 use App\Models\Portfolio\Stage;
 use App\Models\Portfolio\StageBaseline;
+use App\Services\Graph\Exceptions\BaselineReopenException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,8 +23,14 @@ use Illuminate\Support\Facades\DB;
  */
 class BaselineService
 {
+    public function __construct(
+        private readonly ObjectGraphService $graph,
+        private readonly TraceService $trace,
+    ) {}
+
     /**
-     * @param  array<string, mixed>  $opts  knowledge_book_version, approved_by, created_by
+     * @param  array<string, mixed>  $opts  knowledge_book_version, approved_by, created_by,
+     *                                      exceptions (gate checks overridden + reason, spec §9)
      */
     public function baseline(Stage $stage, array $opts = []): StageBaseline
     {
@@ -26,6 +39,8 @@ class BaselineService
 
             $objects = EngObject::query()
                 ->where('stage_id', $stage->id)
+                // Sign-off + decision records track the baseline; they are not members of it.
+                ->whereNotIn('type', [ObjectType::APPROVAL->value, ObjectType::DECISION->value])
                 ->where(function ($q) use ($approvedSessionIds): void {
                     $q->whereNull('session_id');
                     if ($approvedSessionIds !== []) {
@@ -47,10 +62,11 @@ class BaselineService
                 'sequence' => $sequence,
                 'status' => 'approved',
                 'knowledge_book_version' => $opts['knowledge_book_version'] ?? null,
-                'snapshot_meta' => [
+                'snapshot_meta' => array_filter([
                     'object_count' => $objects->count(),
                     'session_ids' => $approvedSessionIds,
-                ],
+                    'exceptions' => $opts['exceptions'] ?? null,
+                ], fn ($v) => $v !== null),
                 'approved_by' => $opts['approved_by'] ?? null,
                 'created_by' => $opts['created_by'] ?? null,
                 'approved_at' => now(),
@@ -74,7 +90,114 @@ class BaselineService
                 'gate_passed_at' => now(),
             ]);
 
+            $this->recordApproval($stage, $baseline, $objects, $opts['approved_by'] ?? null);
+
             return $baseline;
         });
+    }
+
+    /**
+     * Reopen the active baseline (spec §9 "Reopened"): unfreeze its members for
+     * refinement and put the stage back in progress. Members return to
+     * NEEDS_CONFIRMATION (except immutable evidence) so nothing silently keeps
+     * its approved standing; their sessions return to in_session so the capture
+     * loop can resolve them again. Every unlock is a versioned object update —
+     * the reopen is fully auditable and the frozen baseline_objects rows keep
+     * the historical snapshot intact.
+     */
+    public function reopen(StageBaseline $baseline, int $userId, string $reason): StageBaseline
+    {
+        if ($baseline->status !== 'approved') {
+            throw new BaselineReopenException(
+                "Only the active approved baseline can be reopened — this one is '{$baseline->status}'.",
+            );
+        }
+
+        return DB::transaction(function () use ($baseline, $userId, $reason): StageBaseline {
+            $members = EngObject::where('baseline_id', $baseline->id)->get();
+
+            foreach ($members as $object) {
+                $changes = ['baseline_id' => null];
+                if ($object->type !== ObjectType::EVIDENCE) {
+                    $changes['status'] = ObjectStatus::NEEDS_CONFIRMATION;
+                }
+
+                $this->graph->update(
+                    $object, $changes, $userId,
+                    "baseline {$baseline->version_label} reopened",
+                    allowBaselined: true,
+                );
+            }
+
+            $baseline->update([
+                'status' => 'reopened',
+                'reopened_by' => $userId,
+                'reopened_at' => now(),
+                'reopen_reason' => $reason,
+            ]);
+
+            $stage = $baseline->stage;
+            $stage->update([
+                'status' => 'in_progress',
+                'current_baseline_id' => null,
+                'gate_passed_at' => null,
+            ]);
+
+            $stage->sessions()->where('status', 'approved')->get()->each(function ($session): void {
+                $session->update([
+                    'status' => 'in_progress',
+                    'phase' => 'in_session',
+                    'approved_by' => null,
+                    'approved_at' => null,
+                ]);
+            });
+
+            AuditLog::record('baseline.reopened', 'StageBaseline', (int) $baseline->id,
+                ['status' => 'approved'],
+                ['status' => 'reopened', 'reason' => $reason, 'members_unlocked' => $members->count()],
+            );
+
+            return $baseline;
+        });
+    }
+
+    /**
+     * Mint a first-class APPROVAL object capturing the sign-off, linked to every
+     * object it accepts (PRD §14). Skipped when no approver is known.
+     *
+     * @param  Collection<int, EngObject>  $objects
+     */
+    private function recordApproval(Stage $stage, StageBaseline $baseline, $objects, ?int $approvedBy): void
+    {
+        if ($approvedBy === null) {
+            return;
+        }
+
+        $approval = $this->graph->create(
+            ObjectType::APPROVAL,
+            (int) $stage->project->tenant_id,
+            (int) $stage->project_id,
+            "Sign-off: {$baseline->version_label}",
+            [
+                'module_id' => $stage->module_id,
+                'stage_id' => $stage->id,
+                'owner_user_id' => $approvedBy,
+                'source' => $baseline->version_label,
+                'status' => ObjectStatus::CONFIRMED_BY_EVIDENCE,
+                'confidence' => ConfidenceLevel::HIGH,
+                'body' => "Baseline {$baseline->version_label} accepted, freezing {$objects->count()} object(s).",
+                'attributes' => [
+                    'stage_baseline_id' => $baseline->id,
+                    'version_label' => $baseline->version_label,
+                    'object_count' => $objects->count(),
+                ],
+                'changed_by' => $approvedBy,
+                'change_summary' => 'sign-off recorded',
+            ],
+        );
+
+        foreach ($objects as $object) {
+            $this->trace->link($approval, $object, RelationType::APPROVES, null, $approvedBy);
+        }
     }
 }

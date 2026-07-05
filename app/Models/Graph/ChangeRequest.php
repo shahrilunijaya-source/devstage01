@@ -16,12 +16,14 @@ class ChangeRequest extends Model
 {
     protected $fillable = [
         'ref', 'project_id', 'target_object_id', 'raised_by', 'title', 'description',
-        'proposed_changes', 'impact', 'status', 'decided_by', 'decided_at', 'applied_at',
+        'proposed_changes', 'impact', 'guardian_assessment', 'override_reason',
+        'status', 'decided_by', 'decided_at', 'applied_at',
     ];
 
     protected $casts = [
         'proposed_changes' => 'array',
         'impact' => 'array',
+        'guardian_assessment' => 'array',
         'decided_at' => 'datetime',
         'applied_at' => 'datetime',
     ];

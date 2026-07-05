@@ -8,6 +8,7 @@ use App\Enums\LifecycleStage;
 use App\Models\Portfolio\Module;
 use App\Models\Portfolio\Tenant;
 use App\Models\Project;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -45,5 +46,10 @@ class ProjectKnowledgeItem extends Model
     public function module(): BelongsTo
     {
         return $this->belongsTo(Module::class);
+    }
+
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 }

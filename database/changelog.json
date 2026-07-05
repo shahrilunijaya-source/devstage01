@@ -1,0 +1,65 @@
+[
+    {
+        "version": "1.0.0",
+        "title": "v1.0.0",
+        "date": "2026-06-23T11:11:46+08:00",
+        "sha": "575461fda5ebf947c2d9d3c6a675432f34f67580",
+        "notes": {
+            "new": [
+                "Data-viz across lifecycle, RTM and registers",
+                "Promax design-system upgrade",
+                "Requirement lifecycle band + full smoke test",
+                "Project issue log (PRD §17)",
+                "Prototype register (PRD §12 PROTOTYPE stage)",
+                "Design register (PRD §12 SDS/SLD/DBD)",
+                "Requirements traceability matrix (PRD §17)",
+                "Defect loop on verification & validation (PRD §17)",
+                "Verification & validation register (PRD §17)",
+                "Project team view",
+                "Manual stage status + BLOCKED escalation",
+                "What's-blocked portfolio view",
+                "Access-audit CSV export",
+                "Stage gate readiness check before baselining",
+                "Inbox count badge in sidebar",
+                "Project assumptions & lessons log",
+                "Executive summary band on portfolio dashboard",
+                "Extract Word (.docx) evidence text for RAG indexing",
+                "Cross-project action inbox",
+                "Extract PDF evidence text for RAG indexing",
+                "CSV export for risk + decision registers",
+                "Cross-project object search",
+                "Notification bell + fix notification read routes",
+                "Risk register view",
+                "Change-request lifecycle notifications",
+                "Governance notifications on session approval, baseline, conflicts",
+                "Filterable + paginated access-audit viewer",
+                "RAG-index session evidence for cross-evidence retrieval",
+                "Decision register",
+                "Native PPTX export of the review deck",
+                "Project activity timeline",
+                "Deterministic conflict detection",
+                "Baseline sign-off (APPROVAL) records; fix seed under migrate:fresh",
+                "Knowledge Book browser",
+                "Settings store + admin keys console; fix sidebar compile bug",
+                "Swappable LLM-backed session pre-analysis",
+                "URSB Platform Phase 1 foundation + core engines"
+            ],
+            "fixed": [
+                "ISSUE-001 — wrap component classes in @layer components",
+                "Address code + security review findings on lifecycle registers",
+                "Address security-review findings (CSV injection, scope, validation)",
+                "Inbox capability honours bindings at any scope level",
+                "Address code-review findings from night-run",
+                "Rate-limit auth/chat and harden object search",
+                "Security hardening pass — close ACL role split, encrypt secrets, lock admin/upload seams",
+                "Capture Correct/Complete now carry revised text"
+            ],
+            "improved": [
+                "Collapse per-requirement trace walks into one in-memory graph",
+                "Cache sidebar inbox-count badge (60s TTL)",
+                "Stop per-row audit writes on list views",
+                "Memoize PDP lookups to kill per-row ACL N+1"
+            ]
+        }
+    }
+]

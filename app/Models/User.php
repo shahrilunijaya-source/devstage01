@@ -11,7 +11,7 @@ class User extends Authenticatable
 {
     use HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'password', 'role', 'system_role', 'active'];
+    protected $fillable = ['name', 'email', 'password', 'role', 'system_role', 'active', 'last_seen_version'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -42,24 +42,35 @@ class User extends Authenticatable
         return $this->hasMany(ProjectComment::class);
     }
 
+    /**
+     * The authoritative system role for every authorization decision: the new
+     * `system_role` column, falling back to the legacy `role` column only when
+     * `system_role` is unset. Reading all authz through this one accessor closes
+     * the split where the PDP trusted `role` while helpers trusted `system_role`.
+     */
+    public function effectiveSystemRole(): ?string
+    {
+        return $this->system_role ?? $this->role;
+    }
+
     public function isAdmin(): bool
     {
-        return $this->system_role === 'admin';
+        return $this->effectiveSystemRole() === 'admin';
     }
 
     public function isDirector(): bool
     {
-        return $this->system_role === 'director';
+        return $this->effectiveSystemRole() === 'director';
     }
 
     public function isRegular(): bool
     {
-        return $this->system_role === 'regular';
+        return $this->effectiveSystemRole() === 'regular';
     }
 
     public function isClient(): bool
     {
-        return $this->system_role === 'client';
+        return $this->effectiveSystemRole() === 'client';
     }
 
     /** Projects this user is attached to as a client (read-only portal). */

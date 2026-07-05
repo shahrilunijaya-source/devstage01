@@ -50,7 +50,9 @@ class AnthropicClient
             ]);
 
         if ($response->failed()) {
-            throw new RuntimeException('Anthropic request failed: '.$response->status().' '.$response->body());
+            // Status only — the body can echo the (attacker-controllable) prompt
+            // content and would otherwise land verbatim in the application log.
+            throw new RuntimeException('Anthropic request failed with HTTP '.$response->status().'.');
         }
 
         // content is an array of blocks; concatenate the text blocks.
@@ -60,6 +62,47 @@ class AnthropicClient
             ->implode('');
 
         return trim($text);
+    }
+
+    /**
+     * Like answer(), but also returns token usage so callers can feed the
+     * ai_usage_log (spec §11 cost monitoring).
+     *
+     * @return array{text: string, tokens_in: int, tokens_out: int}
+     */
+    public function answerWithUsage(string $model, string $system, string $userContent, int $maxTokens = 1024): array
+    {
+        $key = SystemSetting::get('anthropic_api_key');
+        if (empty($key)) {
+            throw new RuntimeException('Anthropic API key is not configured.');
+        }
+
+        $response = Http::withHeaders([
+            'x-api-key' => $key,
+            'anthropic-version' => self::VERSION,
+        ])
+            ->timeout(120)
+            ->retry(2, 800)
+            ->post(self::ENDPOINT, [
+                'model' => $model,
+                'max_tokens' => $maxTokens,
+                'temperature' => 0,
+                'system' => $system,
+                'messages' => [
+                    ['role' => 'user', 'content' => $userContent],
+                ],
+            ]);
+
+        if ($response->failed()) {
+            // Status only — the body can echo attacker-controllable prompt content.
+            throw new RuntimeException('Anthropic request failed with HTTP '.$response->status().'.');
+        }
+
+        return [
+            'text' => trim(collect($response->json('content', []))->where('type', 'text')->pluck('text')->implode('')),
+            'tokens_in' => (int) $response->json('usage.input_tokens', 0),
+            'tokens_out' => (int) $response->json('usage.output_tokens', 0),
+        ];
     }
 
     /**
@@ -96,7 +139,9 @@ class AnthropicClient
             ]);
 
             if ($response->failed()) {
-                throw new RuntimeException('Anthropic request failed: '.$response->status().' '.$response->body());
+                // Status only — the body can echo the (attacker-controllable) prompt
+                // content and would otherwise land verbatim in the application log.
+                throw new RuntimeException('Anthropic request failed with HTTP '.$response->status().'.');
             }
 
             $content = $response->json('content', []);

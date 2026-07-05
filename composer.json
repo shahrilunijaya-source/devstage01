@@ -9,12 +9,17 @@
         "php": "^8.3",
         "anthropic-ai/sdk": "^0.30.0",
         "barryvdh/laravel-dompdf": "^3.1",
+        "blade-ui-kit/blade-heroicons": "2.7",
         "google/apiclient": "^2.19",
         "laravel/framework": "^13.8",
-        "laravel/tinker": "^3.0"
+        "laravel/tinker": "^3.0",
+        "phpoffice/phppresentation": "^1.2",
+        "phpoffice/phpword": "^1.4",
+        "smalot/pdfparser": "^2.12"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^3.0",
         "laravel/pail": "^1.2.5",
         "laravel/pao": "^1.0.6",
         "laravel/pint": "^1.27",
@@ -40,8 +45,13 @@
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
             "@php artisan migrate --force",
+            "@php artisan releases:sync",
             "npm install --ignore-scripts",
             "npm run build"
+        ],
+        "release": [
+            "@php artisan releases:generate",
+            "@php artisan releases:sync"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",

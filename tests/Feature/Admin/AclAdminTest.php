@@ -76,4 +76,51 @@ class AclAdminTest extends TestCase
             'user_id' => $target->id, 'role_id' => $roleId, 'scope_type' => 'project',
         ])->assertSessionHasErrors('project_id');
     }
+
+    public function test_audit_decision_filter_narrows_results(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $stranger = User::factory()->create(['role' => 'regular']);
+        $pm = User::factory()->create(['role' => 'regular']);
+        $project = $this->project();
+        ScopeBinding::create([
+            'user_id' => $pm->id, 'role_id' => Role::where('key', 'project_pm')->whereNull('tenant_id')->value('id'),
+            'tenant_id' => $project->tenant_id, 'scope_type' => 'project', 'scope_id' => $project->id,
+        ]);
+
+        $this->pdp()->can($stranger, 'view', $project); // deny: 'no active binding for scope'
+        $this->pdp()->can($pm, 'view', $project);       // permit: 'granted by role'
+
+        $this->actingAs($admin)->get(route('admin.acl.audit', ['decision' => 'deny']))
+            ->assertOk()
+            ->assertSee('no active binding for scope')
+            ->assertDontSee('granted by role');
+
+        $this->actingAs($admin)->get(route('admin.acl.audit', ['decision' => 'permit']))
+            ->assertOk()
+            ->assertSee('granted by role')
+            ->assertDontSee('no active binding for scope');
+    }
+
+    public function test_audit_csv_export_streams_filtered_rows(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $stranger = User::factory()->create(['role' => 'regular']);
+        $project = $this->project();
+        $this->pdp()->can($stranger, 'view', $project); // a deny audit row
+
+        $response = $this->actingAs($admin)->get(route('admin.acl.audit.csv', ['decision' => 'deny']));
+        $response->assertOk();
+        $this->assertStringContainsString('text/csv', (string) $response->headers->get('content-type'));
+
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('Decision', $csv);
+        $this->assertStringContainsString('no active binding for scope', $csv);
+    }
+
+    public function test_audit_csv_denied_for_non_admin(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'regular']))
+            ->get(route('admin.acl.audit.csv'))->assertForbidden();
+    }
 }

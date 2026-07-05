@@ -2,7 +2,7 @@
 @section('page-title', 'Notifications')
 
 @section('topbar-actions')
-    <form method="POST" action="{{ route('notifications.read-all') }}">
+    <form method="POST" action="{{ route('notifications.mark-all-read') }}">
         @csrf
         <button type="submit" class="btn-secondary text-[12px]">Mark all read</button>
     </form>
@@ -44,7 +44,7 @@
 <script>
 function markRead(id, btn) {
     fetch(`/notifications/${id}/read`, {
-        method: 'POST',
+        method: 'PATCH',
         headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json' }
     }).then(() => {
         btn.closest('div[class*="bg-teal"]')?.classList.remove('bg-teal/5');

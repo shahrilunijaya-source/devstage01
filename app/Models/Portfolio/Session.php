@@ -22,12 +22,14 @@ class Session extends Model
         'stage_id', 'module_id', 'project_id', 'title',
         'champion_user_id', 'process', 'domain', 'location',
         'status', 'phase', 'firewall_approved_by', 'firewall_approved_at',
+        'firewall_rejected_by', 'firewall_rejected_at', 'firewall_rejected_reason',
         'approved_by', 'approved_at',
     ];
 
     protected $casts = [
         'approved_at' => 'datetime',
         'firewall_approved_at' => 'datetime',
+        'firewall_rejected_at' => 'datetime',
     ];
 
     public function stage(): BelongsTo

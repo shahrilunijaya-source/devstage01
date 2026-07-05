@@ -13,15 +13,19 @@ use App\Models\Knowledge\KnowledgeBook;
 use App\Models\Portfolio\Tenant;
 use App\Services\Graph\TraceService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
 
 /**
- * Read-only Phase-1 verification dashboard (no auth). Renders the live canonical
- * model so the foundation can be inspected in a browser.
+ * Read-only Phase-1 verification dashboard. Renders the live canonical model
+ * across every tenant, so it is admin-only — a scoped user must never see the
+ * whole portfolio through this inspector.
  */
 class UrsbDashboardController extends Controller
 {
-    public function index(TraceService $trace): View
+    public function index(Request $request, TraceService $trace): View
     {
+        abort_unless($request->user()->isAdmin(), 403, 'Administrators only.');
+
         $tenants = Tenant::with(['projects.modules.stages'])->get();
 
         $firstEvidence = EngObject::where('type', 'evidence')->orderBy('id')->first();

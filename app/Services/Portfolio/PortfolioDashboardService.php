@@ -39,7 +39,7 @@ class PortfolioDashboardService
             return collect();
         }
 
-        $projects = Project::with(['tenant', 'modules.stages'])
+        $projects = Project::with(['tenant', 'modules.stages.baselines'])
             ->whereIn('id', $allowedIds)
             ->orderBy('name')
             ->get();
@@ -138,6 +138,26 @@ class PortfolioDashboardService
         }
 
         return 'on_track';
+    }
+
+    /**
+     * Portfolio-wide totals for the executive summary band, derived from the
+     * already-computed per-project cards (no extra queries).
+     *
+     * @param  Collection<int, array<string, mixed>>  $cards
+     * @return array<string, mixed>
+     */
+    public function summarize(Collection $cards): array
+    {
+        return [
+            'projects' => $cards->count(),
+            'byHealth' => collect(['on_track', 'at_risk', 'blocked', 'complete'])
+                ->mapWithKeys(fn (string $h): array => [$h => $cards->where('health', $h)->count()]),
+            'openRisks' => (int) $cards->sum('openRisks'),
+            'baselines' => (int) $cards->sum('baselineCount'),
+            'blockedStages' => (int) $cards->sum('blockedStages'),
+            'avgProgress' => $cards->isNotEmpty() ? (int) round($cards->avg('progress')) : 0,
+        ];
     }
 
     /** Lifecycle stages in canonical order, for the Gantt header. */

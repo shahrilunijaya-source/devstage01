@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\ChatSession;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\AccessControl\PolicyDecisionPoint;
 use App\Services\Rag\RagService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -87,15 +88,16 @@ class PortfolioChatController extends Controller
     }
 
     /**
+     * Retrieval scope = the projects the PDP grants this user 'retrieve' on.
+     * Routing through the PDP (not the raw assignment pivot) keeps RAG bound to
+     * the same ACL authority as every other seam — revoked/expired bindings drop
+     * out, and no parallel access path can leak another tenant's chunks.
+     *
      * @return array<int, int>
      */
     private function accessibleProjectIds(User $user): array
     {
-        if ($user->isAdmin() || $user->isDirector()) {
-            return Project::query()->pluck('id')->all();
-        }
-
-        return $user->projects()->pluck('projects.id')->all();
+        return app(PolicyDecisionPoint::class)->accessibleProjectIds($user, 'retrieve');
     }
 
     /**

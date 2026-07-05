@@ -13,6 +13,11 @@ use App\Models\Portfolio\Session;
 use App\Models\User;
 use App\Services\Graph\ObjectGraphService;
 use App\Services\Graph\TraceService;
+use App\Services\Session\Analysis\AnalysisResult;
+use App\Services\Session\Analysis\DeterministicEvidenceAnalyst;
+use App\Services\Session\Analysis\DraftedObject;
+use App\Services\Session\Analysis\EvidenceAnalyst;
+use App\Services\Session\Analysis\Exceptions\AnalysisException;
 use App\Services\Session\Exceptions\SessionEngineException;
 
 /**
@@ -29,6 +34,8 @@ class SessionEngineService
     public function __construct(
         private readonly ObjectGraphService $graph,
         private readonly TraceService $trace,
+        private readonly EvidenceAnalyst $analyst,
+        private readonly DeterministicEvidenceAnalyst $fallback,
     ) {}
 
     /**
@@ -38,6 +45,15 @@ class SessionEngineService
      */
     public function preAnalyze(Session $session): int
     {
+        // Re-running before the firewall is legitimate (and idempotent per
+        // evidence); running later would silently reset an approved session's
+        // phase and let the whole chain replay — an uncontrolled reopen.
+        if (! in_array($session->phase, ['pre_analysis', 'firewall_review'], true)) {
+            throw new SessionEngineException(
+                "Cannot run pre-analysis: session is in phase '{$session->phase}'. Reopen the baseline or use a change request instead.",
+            );
+        }
+
         $evidence = EngObject::where('session_id', $session->id)
             ->where('type', ObjectType::EVIDENCE->value)
             ->get();
@@ -49,37 +65,66 @@ class SessionEngineService
             'session_id' => $session->id,
         ];
 
+        // Root of the chain (spec §6): drafted requirements also trace back to
+        // the project objective, so RTM walks reach OBJ-… from any requirement.
+        $objective = EngObject::where('project_id', $session->project_id)
+            ->where('type', ObjectType::OBJECTIVE->value)
+            ->orderByDesc('id')
+            ->first();
+
         foreach ($evidence as $evd) {
             if ($evd->outgoingTraces()->where('relation_type', RelationType::DERIVED_FROM->value)->exists()) {
                 continue; // already analysed
             }
 
-            $finding = $this->graph->create(ObjectType::FINDING, (int) $evd->tenant_id, (int) $session->project_id, 'Finding: '.$evd->title, $scope + [
-                'body' => $evd->body,
-                'source' => $evd->ref,
-                'source_object_id' => $evd->id,
-                'status' => ObjectStatus::NEEDS_CONFIRMATION,
-                'confidence' => ConfidenceLevel::MEDIUM,
-                'impact' => 'medium',
-            ]);
+            $result = $this->draftFor($evd);
 
-            $requirement = $this->graph->create(ObjectType::BUSINESS_REQUIREMENT, (int) $evd->tenant_id, (int) $session->project_id, 'Draft requirement from '.$evd->ref, $scope + [
-                'body' => 'System shall address: '.($evd->title),
-                'source' => $finding->ref,
-                'source_object_id' => $finding->id,
-                'status' => ObjectStatus::NEEDS_CONFIRMATION,
-                'confidence' => ConfidenceLevel::LOW,
-                'impact' => 'high',
-            ]);
-
+            $finding = $this->materialize($result->finding, $evd, (int) $evd->tenant_id, (int) $session->project_id, $scope, $evd->ref, (int) $evd->id, $result->citations);
             $this->trace->link($evd, $finding, RelationType::DERIVED_FROM);
-            $this->trace->link($finding, $requirement, RelationType::DERIVED_FROM);
-            $drafted += 2;
+            $drafted++;
+
+            foreach ($result->requirements as $reqDraft) {
+                $requirement = $this->materialize($reqDraft, $evd, (int) $evd->tenant_id, (int) $session->project_id, $scope, $finding->ref, (int) $finding->id, $result->citations);
+                $this->trace->link($finding, $requirement, RelationType::DERIVED_FROM);
+                if ($objective !== null) {
+                    $this->trace->link($objective, $requirement, RelationType::DERIVED_FROM);
+                }
+                $drafted++;
+            }
         }
 
         $session->update(['phase' => 'firewall_review']);
 
         return $drafted;
+    }
+
+    /** Run the configured analyst, falling back to the deterministic one on failure. */
+    private function draftFor(EngObject $evidence): AnalysisResult
+    {
+        try {
+            return $this->analyst->analyze($evidence);
+        } catch (AnalysisException) {
+            return $this->fallback->analyze($evidence);
+        }
+    }
+
+    /**
+     * Turn an AI draft into a canonical object, citing its source (PRD §9.2).
+     *
+     * @param  array<string, mixed>  $scope
+     * @param  array<int, string>  $citations
+     */
+    private function materialize(DraftedObject $draft, EngObject $evidence, int $tenantId, int $projectId, array $scope, string $sourceRef, int $sourceObjectId, array $citations): EngObject
+    {
+        return $this->graph->create($draft->type, $tenantId, $projectId, $draft->title, $scope + [
+            'body' => $draft->body,
+            'source' => $sourceRef,
+            'source_object_id' => $sourceObjectId,
+            'status' => ObjectStatus::NEEDS_CONFIRMATION,
+            'confidence' => $draft->confidence,
+            'impact' => $draft->impact,
+            'attributes' => ['cites' => $citations],
+        ]);
     }
 
     /**
@@ -94,6 +139,26 @@ class SessionEngineService
             'phase' => 'ready',
             'firewall_approved_by' => $reviewer->id,
             'firewall_approved_at' => now(),
+            'firewall_rejected_by' => null,
+            'firewall_rejected_at' => null,
+            'firewall_rejected_reason' => null,
+        ]);
+    }
+
+    /**
+     * Firewall send-back (spec §9 "Refinement Required"): the reviewer returns
+     * the AI drafts to pre-analysis with a recorded reason, so more evidence can
+     * be added and the drafts regenerated before human review runs again.
+     */
+    public function rejectFirewall(Session $session, User $reviewer, string $reason): void
+    {
+        $this->assertPhase($session, 'firewall_review', 'reject at quality firewall');
+
+        $session->update([
+            'phase' => 'pre_analysis',
+            'firewall_rejected_by' => $reviewer->id,
+            'firewall_rejected_at' => now(),
+            'firewall_rejected_reason' => $reason,
         ]);
     }
 
@@ -159,6 +224,15 @@ class SessionEngineService
             throw new SessionEngineException("Unknown capture decision: {$decision}.");
         }
 
+        // Capture is only meaningful while the session is live — outside it,
+        // decisions would mutate reviewed (or approved) content unnoticed.
+        $session = $object->session;
+        if ($session !== null && $session->phase !== 'in_session') {
+            throw new SessionEngineException(
+                "Cannot capture: session is in phase '{$session->phase}', expected 'in_session'.",
+            );
+        }
+
         return match ($decision) {
             'confirm' => $this->confirm($object, $user),
             'correct' => $this->edit($object, $user, $opts, 'corrected'),
@@ -196,10 +270,43 @@ class SessionEngineService
 
     private function decide(EngObject $object, User $user): EngObject
     {
-        return $this->graph->update($object, [
+        $resolved = $this->graph->update($object, [
             'status' => ObjectStatus::CONFIRMED_BY_EVIDENCE,
             'confidence' => ConfidenceLevel::HIGH,
         ], $user->id, 'decision recorded in session');
+
+        // Evidence is source, not a judgement call — only log decisions on hypotheses.
+        if ($object->type !== ObjectType::EVIDENCE) {
+            $this->recordDecision($resolved, $user);
+        }
+
+        return $resolved;
+    }
+
+    /** Log a first-class DECISION object resolving an item (PRD §9 decision register). */
+    private function recordDecision(EngObject $target, User $user): void
+    {
+        $decision = $this->graph->create(
+            ObjectType::DECISION,
+            (int) $target->tenant_id,
+            (int) $target->project_id,
+            'Decision on '.$target->ref,
+            [
+                'module_id' => $target->module_id,
+                'stage_id' => $target->stage_id,
+                'session_id' => $target->session_id,
+                'owner_user_id' => $user->id,
+                'source' => $target->ref,
+                'source_object_id' => $target->id,
+                'status' => ObjectStatus::CONFIRMED_BY_EVIDENCE,
+                'confidence' => ConfidenceLevel::HIGH,
+                'body' => "Item {$target->ref} accepted by decision during session capture.",
+                'changed_by' => $user->id,
+                'change_summary' => 'decision recorded',
+            ],
+        );
+
+        $this->trace->link($decision, $target, RelationType::RESOLVES, null, $user->id);
     }
 
     private function isHighImpact(EngObject $object): bool

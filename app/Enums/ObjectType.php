@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Enums;
 
 /**
- * The 26 canonical object types (PRD §12.1). Each maps to a permanent-ID
- * prefix (PRD §12.3 trace example, e.g. EVD-0027, SRS-FR-0102, SDS-COMP-0012).
+ * The canonical object types (PRD §12.1 + the Project Objective Baseline,
+ * spec §6). Each maps to a permanent-ID prefix (PRD §12.3 trace example,
+ * e.g. OBJ-0001, EVD-0027, SRS-FR-0102, SDS-COMP-0012).
  */
 enum ObjectType: string
 {
+    case OBJECTIVE = 'objective';
     case EVIDENCE = 'evidence';
     case FINDING = 'finding';
     case USER_NEED = 'user_need';
@@ -41,6 +43,7 @@ enum ObjectType: string
     public function idPrefix(): string
     {
         return match ($this) {
+            self::OBJECTIVE => 'OBJ',
             self::EVIDENCE => 'EVD',
             self::FINDING => 'FIND',
             self::USER_NEED => 'UN',

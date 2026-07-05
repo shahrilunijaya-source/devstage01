@@ -1,6 +1,7 @@
 {{-- Unified Feedback hub: Report a bug/idea + What's New, in one modal.
      Expects $latestRelease (nullable). Opened via $dispatch('open-modal','feedback-hub'). --}}
 @php
+    $latestRelease = $latestRelease ?? null;
     $hubSections = [
         'new' => ['label' => 'New', 'color' => 'text-green-700', 'dot' => 'bg-green-500'],
         'improved' => ['label' => 'Improved', 'color' => 'text-blue-700', 'dot' => 'bg-blue-500'],
@@ -18,7 +19,7 @@
             files: [],
             max: 52428800,
             markSeen() {
-                @if($latestRelease)
+                @if($latestRelease && \Illuminate\Support\Facades\Route::has('releases.seen'))
                 fetch('{{ route('releases.seen') }}', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
@@ -94,7 +95,9 @@
                 <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
                     <div class="flex items-center gap-4">
                         <a href="{{ route('feedback.index') }}" class="text-teal text-[12px] font-medium hover:text-teal-700">My feedback →</a>
+                        @if(\Illuminate\Support\Facades\Route::has('how-it-works'))
                         <a href="{{ route('how-it-works') }}" class="text-gray-500 text-[12px] font-medium hover:text-gray-700">How the system works →</a>
+                        @endif
                     </div>
                     <div class="flex gap-2">
                         @can('viewAny', \App\Models\FeedbackItem::class)
@@ -132,7 +135,9 @@
                 @endif
             </div>
             <div class="px-6 py-4 border-t border-gray-100 flex justify-end">
-                <a href="#" class="text-teal text-[12px] font-medium hover:text-teal-700">View all updates →</a>
+                @if(\Illuminate\Support\Facades\Route::has('releases.index'))
+                <a href="{{ route('releases.index') }}" class="text-teal text-[12px] font-medium hover:text-teal-700">View all updates →</a>
+                @endif
             </div>
         </div>
     </div>

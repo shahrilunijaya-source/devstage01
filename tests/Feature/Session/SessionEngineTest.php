@@ -95,21 +95,25 @@ class SessionEngineTest extends TestCase
     public function test_high_impact_low_confidence_cannot_be_quick_confirmed(): void
     {
         [$session] = $this->sessionWithEvidence();
-        $this->engine()->preAnalyze($session);
         $user = User::factory()->create(['role' => 'regular']);
+        $this->engine()->preAnalyze($session);
+        $this->engine()->passFirewall($session->fresh(), $user);
+        $this->engine()->startSession($session->fresh());
 
         // The drafted requirement is impact=high, confidence=low.
         $req = EngObject::where('session_id', $session->id)->where('type', 'business_requirement')->firstOrFail();
 
-        $this->expectException(SessionEngineException::class);
+        $this->expectExceptionMessage('cannot be quick-confirmed');
         $this->engine()->capture($req, 'confirm', $user);
     }
 
     public function test_confirm_marks_finding_confirmed(): void
     {
         [$session] = $this->sessionWithEvidence();
-        $this->engine()->preAnalyze($session);
         $user = User::factory()->create(['role' => 'regular']);
+        $this->engine()->preAnalyze($session);
+        $this->engine()->passFirewall($session->fresh(), $user);
+        $this->engine()->startSession($session->fresh());
 
         $finding = EngObject::where('session_id', $session->id)->where('type', 'finding')->firstOrFail();
         $this->engine()->capture($finding, 'confirm', $user);
@@ -123,8 +127,10 @@ class SessionEngineTest extends TestCase
     public function test_decide_resolves_high_impact_low_confidence_item(): void
     {
         [$session] = $this->sessionWithEvidence();
-        $this->engine()->preAnalyze($session);
         $user = User::factory()->create(['role' => 'regular']);
+        $this->engine()->preAnalyze($session);
+        $this->engine()->passFirewall($session->fresh(), $user);
+        $this->engine()->startSession($session->fresh());
         $req = EngObject::where('session_id', $session->id)->where('type', 'business_requirement')->firstOrFail();
 
         $this->engine()->capture($req, 'decide', $user);

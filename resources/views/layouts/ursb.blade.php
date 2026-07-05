@@ -1,88 +1,55 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="csrf-token" content="{{ csrf_token() }}">
-<title>@yield('title', 'URSB') · URSB Platform</title>
-<style>
-    :root {
-        --bg:#0f1117; --panel:#171a23; --panel2:#12151d; --line:#262b38; --text:#e6e9f0;
-        --muted:#8b93a7; --accent:#00a6a6; --primary:#2f75b5; --gold:#d6a14a; --danger:#c0504a;
-    }
-    * { box-sizing: border-box; }
-    body { margin:0; background:var(--bg); color:var(--text);
-        font:15px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
-    a { color:var(--primary); text-decoration:none; }
-    a:hover { text-decoration:underline; }
-    nav.top { display:flex; align-items:center; gap:22px; padding:0 28px; height:58px;
-        background:linear-gradient(180deg,#11141c,#0f1117); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:10; }
-    nav.top .brand { font-weight:700; letter-spacing:.3px; }
-    nav.top .brand span { color:var(--accent); }
-    nav.top a.link { color:var(--muted); font-size:14px; }
-    nav.top a.link.active, nav.top a.link:hover { color:var(--text); text-decoration:none; }
-    nav.top .spacer { flex:1; }
-    nav.top .who { color:var(--muted); font-size:13px; }
-    .btn { display:inline-block; background:var(--accent); color:#08121a; border:none; border-radius:8px;
-        padding:8px 14px; font-size:13.5px; font-weight:600; cursor:pointer; }
-    .btn:hover { filter:brightness(1.08); text-decoration:none; }
-    .btn.ghost { background:transparent; border:1px solid var(--line); color:var(--text); }
-    .btn.sm { padding:5px 10px; font-size:12.5px; }
-    .wrap { max-width:1100px; margin:0 auto; padding:26px 28px 72px; }
-    h1.page { font-size:22px; margin:0 0 4px; }
-    .sub { color:var(--muted); font-size:13px; margin:0 0 22px; }
-    section { margin-bottom:30px; }
-    h2.sec { font-size:12px; text-transform:uppercase; letter-spacing:.8px; color:var(--muted);
-        border-bottom:1px solid var(--line); padding-bottom:8px; margin:0 0 14px;
-        display:flex; align-items:center; justify-content:space-between; }
-    .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; }
-    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:26px; }
-    .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
-    .card .n { font-size:25px; font-weight:650; }
-    .card .l { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.6px; }
-    table { width:100%; border-collapse:collapse; font-size:14px; }
-    th,td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); }
-    th { color:var(--muted); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
-    tr:last-child td { border-bottom:none; }
-    .pill { font-size:11px; padding:3px 9px; border-radius:999px; border:1px solid var(--line); color:var(--muted); background:var(--panel2); }
-    .pill.on { color:#08121a; background:var(--accent); border-color:var(--accent); font-weight:600; }
-    .pill.warn { color:var(--gold); border-color:var(--gold); }
-    code { font-family:ui-monospace,monospace; color:var(--accent); }
-    .empty { color:var(--muted); font-style:italic; }
-    .flash { background:rgba(0,166,166,.12); border:1px solid var(--accent); color:#bdeaea;
-        padding:10px 14px; border-radius:8px; margin-bottom:18px; font-size:13.5px; }
-    .flash.err { background:rgba(192,80,74,.12); border-color:var(--danger); color:#e9bdbd; }
-    form.inline { display:inline; }
-    label { display:block; font-size:12px; color:var(--muted); margin:12px 0 5px; text-transform:uppercase; letter-spacing:.5px; }
-    input,select,textarea { width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--text);
-        border-radius:8px; padding:9px 11px; font-size:14px; }
-    input:focus,select:focus,textarea:focus { outline:none; border-color:var(--accent); }
-    .row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    .err-text { color:#e9bdbd; font-size:12px; margin-top:5px; }
-</style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>@unless(app()->environment('production'))[{{ strtoupper(app()->environment()) }}] @endunless@yield('title', 'DevStage01') — DevStage01</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>
+        aside.is-collapsed nav a span.label { display: none; }
+        aside.is-collapsed nav a { justify-content: center; }
+    </style>
+    @stack('styles')
 </head>
-<body>
-<nav class="top">
-    <div class="brand">URS<span>B</span></div>
-    @auth
-        @php($u = auth()->user())
-        <a class="link {{ request()->routeIs('portfolio.index') || request()->routeIs('portfolio.show') ? 'active' : '' }}" href="{{ route('portfolio.index') }}">Portfolio</a>
-        <a class="link {{ request()->routeIs('portfolio.dashboard') ? 'active' : '' }}" href="{{ route('portfolio.dashboard') }}">Dashboard</a>
-        <a class="link {{ request()->routeIs('ursb.*') ? 'active' : '' }}" href="{{ route('ursb.dashboard') }}">Graph</a>
-        @if ($u->role === 'admin')
-            <a class="link {{ request()->routeIs('admin.*') ? 'active' : '' }}" href="{{ route('admin.acl.index') }}">Admin</a>
-        @endif
-        <div class="spacer"></div>
-        <span class="who">{{ $u->name }} · {{ $u->role }}</span>
-        <form class="inline" method="POST" action="{{ route('logout') }}">@csrf
-            <button class="btn ghost sm" type="submit">Logout</button>
-        </form>
-    @endauth
-</nav>
-<div class="wrap">
-    @if (session('status'))<div class="flash">{{ session('status') }}</div>@endif
-    @if (session('error'))<div class="flash err">{{ session('error') }}</div>@endif
-    @yield('content')
-</div>
+<body class="bg-paper font-sans antialiased text-gray-800"
+      x-data="{ navCollapsed: localStorage.getItem('navCollapsed') === '1' }"
+      x-init="$watch('navCollapsed', v => localStorage.setItem('navCollapsed', v ? '1' : '0'))">
+
+@auth
+    @php($u = auth()->user())
+    @include('partials.sidebar')
+
+    <!-- Main content -->
+    <div :class="navCollapsed ? 'ml-16' : 'ml-60'" class="flex flex-col min-h-screen transition-[margin] duration-200 ease-out">
+        @include('partials.topbar')
+        <main class="flex-1">
+            <div class="max-w-7xl mx-auto px-6 lg:px-8 py-8 animate-rise">
+                @if (session('status'))
+                    <div class="mb-5 rounded-xl bg-teal/10 border border-teal/30 px-4 py-3 text-[13px] text-pine flex items-center gap-2 shadow-sm">
+                        <svg class="w-4 h-4 shrink-0 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        {{ session('status') }}
+                    </div>
+                @endif
+                @if (session('error'))
+                    <div class="mb-5 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[13px] text-red-700 flex items-center gap-2 shadow-sm">
+                        <svg class="w-4 h-4 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                        {{ session('error') }}
+                    </div>
+                @endif
+                @yield('content')
+            </div>
+        </main>
+    </div>
+
+    @include('feedback._hub-modal')
+@else
+    <main class="min-h-screen max-w-7xl mx-auto px-6 py-8">
+        @yield('content')
+    </main>
+@endauth
+
 </body>
 </html>

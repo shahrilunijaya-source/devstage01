@@ -7,6 +7,7 @@ namespace App\Services\AccessControl;
 use App\Models\Acl\AccessAudit;
 use App\Models\Acl\ScopeBinding;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,18 +19,74 @@ class PolicyDecisionPoint
     /** Actions a director may perform read-only without an explicit binding. */
     private const READ_ACTIONS = ['view', 'retrieve', 'export'];
 
+    /**
+     * Request-scoped caches (the PDP is a singleton). List views call can()
+     * once per row with the same user; without this, each row re-queries the
+     * user's bindings, role permissions, and rule tables. Invalidated by
+     * ScopeBinding writes (see ScopeBinding::booted) so a mid-request grant or
+     * revoke is honoured immediately.
+     *
+     * @var array<string, list<ScopeBinding>>
+     */
+    private array $bindingCache = [];
+
+    /** @var array<string, list<string>> */
+    private array $effectCache = [];
+
+    /** @var Collection<int, object>|null */
+    private ?Collection $objectRuleCache = null;
+
+    /** @var Collection<int, object>|null */
+    private ?Collection $fieldRuleCache = null;
+
     public function __construct(private readonly ScopeResolver $resolver) {}
 
+    /** Drop the request-scoped caches (called when ACL bindings change). */
+    public function flushScopeCache(): void
+    {
+        $this->bindingCache = [];
+        $this->effectCache = [];
+        $this->objectRuleCache = null;
+        $this->fieldRuleCache = null;
+    }
+
+    /**
+     * Terminal access decision for one action on one object — audited. Use this
+     * at a Policy Enforcement Point (a user actively requesting access).
+     */
     public function can(User $user, string $action, mixed $object = null, ?string $field = null, string $pep = 'gate'): Decision
     {
         $ref = $this->resolver->resolve($object);
+        $decision = $this->evaluate($user, $action, $ref);
 
-        if ($user->role === 'admin') {
-            return $this->audit(Decision::permit('admin'), $user, $action, $ref, $pep, $field);
+        // Abstain (no resolvable scope) is not a decision — let Laravel policies decide.
+        if ($decision->abstain) {
+            return $decision;
         }
 
-        if ($user->role === 'director' && in_array($action, self::READ_ACTIONS, true)) {
-            return $this->audit(Decision::permit('director-read'), $user, $action, $ref, $pep, $field);
+        return $this->audit($decision, $user, $action, $ref, $pep, $field);
+    }
+
+    /**
+     * Non-audited visibility predicate for bulk list filtering (PRD §6.4). A list
+     * render drops rows the viewer may not see; auditing every row would flood the
+     * access log with one entry per object per page. The decision logic is the
+     * same single authority as can() — only the audit write is skipped.
+     */
+    public function allows(User $user, string $action, mixed $object = null): bool
+    {
+        return $this->evaluate($user, $action, $this->resolver->resolve($object))->permitted;
+    }
+
+    /** The layered access decision (no audit, no side effects). */
+    private function evaluate(User $user, string $action, ?ScopeRef $ref): Decision
+    {
+        if ($user->isAdmin()) {
+            return Decision::permit('admin');
+        }
+
+        if ($user->isDirector() && in_array($action, self::READ_ACTIONS, true)) {
+            return Decision::permit('director-read');
         }
 
         // No resolvable scope — abstain so existing Laravel policies decide.
@@ -40,12 +97,14 @@ class PolicyDecisionPoint
         $bindings = $this->coveringBindings($user, $ref);
 
         if ($bindings === []) {
-            return $this->audit(Decision::deny('no active binding for scope'), $user, $action, $ref, $pep, $field);
+            return Decision::deny('no active binding for scope');
         }
 
         $roleIds = array_values(array_unique(array_map(fn (ScopeBinding $b): int => (int) $b->role_id, $bindings)));
+        sort($roleIds);
 
-        $effects = DB::table('acl_role_permission')
+        $effectKey = implode(',', $roleIds).'|'.$action.'|'.$ref->objectType;
+        $effects = $this->effectCache[$effectKey] ??= DB::table('acl_role_permission')
             ->join('acl_permissions', 'acl_role_permission.permission_id', '=', 'acl_permissions.id')
             ->whereIn('acl_role_permission.role_id', $roleIds)
             ->where('acl_permissions.action', $action)
@@ -54,19 +113,19 @@ class PolicyDecisionPoint
             ->all();
 
         if ($effects === []) {
-            return $this->audit(Decision::deny('no role grants this action on scope'), $user, $action, $ref, $pep, $field);
+            return Decision::deny('no role grants this action on scope');
         }
 
         if (in_array('deny', $effects, true)) {
-            return $this->audit(Decision::deny('explicit deny'), $user, $action, $ref, $pep, $field);
+            return Decision::deny('explicit deny');
         }
 
         // Object-rule layer: attribute-based deny (classification/status), PRD §6.3.
         if ($this->objectRuleDenies($ref, $action)) {
-            return $this->audit(Decision::deny('denied by object rule'), $user, $action, $ref, $pep, $field);
+            return Decision::deny('denied by object rule');
         }
 
-        return $this->audit(Decision::permit('granted by role'), $user, $action, $ref, $pep, $field);
+        return Decision::permit('granted by role');
     }
 
     /**
@@ -78,7 +137,7 @@ class PolicyDecisionPoint
      */
     public function filterFields(User $user, mixed $object, array $fields): array
     {
-        if ($user->role === 'admin') {
+        if ($user->isAdmin()) {
             return [];
         }
 
@@ -88,11 +147,13 @@ class PolicyDecisionPoint
             return [];
         }
 
-        return DB::table('acl_field_rules')
-            ->whereIn('object_type', [$ref->objectType, '*'])
-            ->whereIn('field', $fields)
-            ->where('effect', 'redact')
-            ->where(fn ($q) => $q->whereNull('classification')->orWhere('classification', $ref->classification))
+        $rules = $this->fieldRuleCache ??= DB::table('acl_field_rules')->get();
+
+        return $rules
+            ->filter(fn ($r): bool => in_array($r->object_type, [$ref->objectType, '*'], true)
+                && in_array($r->field, $fields, true)
+                && $r->effect === 'redact'
+                && ($r->classification === null || $r->classification === $ref->classification))
             ->pluck('field')
             ->unique()
             ->values()
@@ -101,13 +162,14 @@ class PolicyDecisionPoint
 
     private function objectRuleDenies(ScopeRef $ref, string $action): bool
     {
-        return DB::table('acl_object_rules')
-            ->whereIn('object_type', [$ref->objectType, '*'])
-            ->where('action', $action)
-            ->where('effect', 'deny')
-            ->where(fn ($q) => $q->whereNull('match_classification')->orWhere('match_classification', $ref->classification))
-            ->where(fn ($q) => $q->whereNull('match_status')->orWhere('match_status', $ref->status))
-            ->exists();
+        // The rules table is tiny and request-stable — load once, match in PHP.
+        $rules = $this->objectRuleCache ??= DB::table('acl_object_rules')->get();
+
+        return $rules->contains(fn ($r): bool => in_array($r->object_type, [$ref->objectType, '*'], true)
+            && $r->action === $action
+            && $r->effect === 'deny'
+            && ($r->match_classification === null || $r->match_classification === $ref->classification)
+            && ($r->match_status === null || $r->match_status === $ref->status));
     }
 
     /** Throwing variant for Policy Enforcement Points. */
@@ -127,7 +189,7 @@ class PolicyDecisionPoint
      */
     public function accessibleProjectIds(User $user, string $action = 'retrieve'): array
     {
-        if (in_array($user->role, ['admin', 'director'], true)) {
+        if ($user->isAdmin() || $user->isDirector()) {
             return DB::table('projects')->pluck('id')->map(fn ($id): int => (int) $id)->all();
         }
 
@@ -172,13 +234,16 @@ class PolicyDecisionPoint
      */
     private function coveringBindings(User $user, ScopeRef $ref): array
     {
-        return ScopeBinding::active()
+        // Cache the user's active bindings per tenant; covers() then filters the
+        // cached set to the specific ref in PHP — no per-row binding query.
+        $cacheKey = $user->id.'|'.($ref->tenantId ?? 'null');
+        $active = $this->bindingCache[$cacheKey] ??= ScopeBinding::active()
             ->where('user_id', $user->id)
             ->where('tenant_id', $ref->tenantId)
             ->get()
-            ->filter(fn (ScopeBinding $b): bool => $this->covers($b, $ref))
-            ->values()
             ->all();
+
+        return array_values(array_filter($active, fn (ScopeBinding $b): bool => $this->covers($b, $ref)));
     }
 
     private function covers(ScopeBinding $binding, ScopeRef $ref): bool
@@ -195,9 +260,13 @@ class PolicyDecisionPoint
 
     private function audit(Decision $decision, User $user, string $action, ?ScopeRef $ref, string $pep, ?string $field): Decision
     {
+        $request = request();
+
         AccessAudit::create([
             'user_id' => $user->id,
             'actor_id' => auth()->id(),
+            'ip' => $request->ip(),
+            'request_id' => $request->header('X-Request-Id') ?? (string) str()->uuid(),
             'decision' => $decision->permitted ? 'permit' : 'deny',
             'action' => $action,
             'object_type' => $ref?->objectType,

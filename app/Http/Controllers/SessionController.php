@@ -9,8 +9,12 @@ use App\Enums\ObjectType;
 use App\Models\Graph\EngObject;
 use App\Models\Portfolio\Session;
 use App\Services\AccessControl\PolicyDecisionPoint;
+use App\Services\Discussion\DiscussionService;
 use App\Services\Graph\ObjectGraphService;
+use App\Services\Knowledge\EvidenceIndexer;
 use App\Services\Knowledge\KnowledgeResolver;
+use App\Services\NotificationService;
+use App\Services\Session\ConflictDetectionService;
 use App\Services\Session\Exceptions\SessionEngineException;
 use App\Services\Session\SessionEngineService;
 use Illuminate\Contracts\View\View;
@@ -43,6 +47,7 @@ class SessionController extends Controller
             'canEdit' => $this->pdp->can($request->user(), 'edit', $session->project)->permitted,
             'canValidate' => $this->pdp->can($request->user(), 'validate', $session->project)->permitted,
             'canApprove' => $this->pdp->can($request->user(), 'approve', $session->project)->permitted,
+            'discussions' => app(DiscussionService::class)->for($session, $request->user()),
         ]);
     }
 
@@ -51,7 +56,7 @@ class SessionController extends Controller
      * object (PRD §8 — "evidence enters as immutable source"). Accepted only in
      * the pre-analysis phase, before the AI drafts hypotheses from it.
      */
-    public function addEvidence(Request $request, Session $session, ObjectGraphService $graph): RedirectResponse
+    public function addEvidence(Request $request, Session $session, ObjectGraphService $graph, EvidenceIndexer $indexer): RedirectResponse
     {
         $this->authorizeEdit($request, $session);
 
@@ -63,7 +68,11 @@ class SessionController extends Controller
             'label' => ['required', 'string', 'max:255'],
             'source_type' => ['required', 'in:paste,file'],
             'text' => ['required_if:source_type,paste', 'nullable', 'string'],
-            'file' => ['required_if:source_type,file', 'nullable', 'file', 'max:10240'],
+            // Allow-list document/image evidence only. `mimes` validates against the
+            // content-guessed type (finfo), not the spoofable client Content-Type,
+            // so an executable renamed to .pdf is still rejected.
+            'file' => ['required_if:source_type,file', 'nullable', 'file', 'max:10240',
+                'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,md,jpg,jpeg,png,gif,webp'],
             'classification' => ['nullable', 'in:public,internal,confidential,restricted'],
         ]);
 
@@ -75,7 +84,8 @@ class SessionController extends Controller
             $path = $file->store("evidence/{$session->project_id}");
             $attributes += [
                 'filename' => $file->getClientOriginalName(),
-                'mime' => $file->getClientMimeType(),
+                'mime' => $file->getMimeType(), // server-derived, not the client header
+
                 'size' => $file->getSize(),
                 'path' => $path,
             ];
@@ -103,13 +113,26 @@ class SessionController extends Controller
             ],
         );
 
+        // Make the evidence retrievable across the project corpus. Best-effort —
+        // a missing key or embedding failure must never block the capture itself.
+        try {
+            $indexer->index($object);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return $this->back($session, "Evidence {$object->ref} captured.");
     }
 
     public function preAnalyze(Request $request, Session $session): RedirectResponse
     {
         $this->authorizeEdit($request, $session);
-        $n = $this->engine->preAnalyze($session);
+
+        try {
+            $n = $this->engine->preAnalyze($session);
+        } catch (SessionEngineException $e) {
+            return $this->back($session, $e->getMessage(), true);
+        }
 
         return $this->back($session, "AI pre-analysis drafted {$n} objects. Awaiting quality-firewall review.");
     }
@@ -122,11 +145,40 @@ class SessionController extends Controller
             'Quality firewall passed — session is ready.');
     }
 
+    /** Firewall send-back (spec §9 "Refinement Required") — recorded reason required. */
+    public function rejectFirewall(Request $request, Session $session): RedirectResponse
+    {
+        abort_unless($this->pdp->can($request->user(), 'validate', $session->project)->permitted, 403, 'Access denied by ACL.');
+
+        $data = $request->validate(['reason' => ['required', 'string', 'max:500']]);
+
+        return $this->guard($session, fn () => $this->engine->rejectFirewall($session, $request->user(), $data['reason']),
+            'Sent back to pre-analysis — add evidence or re-run the AI drafts, then resubmit to the firewall.');
+    }
+
     public function start(Request $request, Session $session): RedirectResponse
     {
         $this->authorizeEdit($request, $session);
 
         return $this->guard($session, fn () => $this->engine->startSession($session), 'Session started.');
+    }
+
+    public function scanConflicts(Request $request, Session $session, ConflictDetectionService $detector, NotificationService $notifications): RedirectResponse
+    {
+        $this->authorizeEdit($request, $session);
+
+        $count = $detector->scan($session, $request->user()->id);
+
+        if ($count > 0) {
+            $notifications->notifyProjectBindings(
+                $session->project, 'conflict_detected',
+                "{$count} conflict group(s) flagged in session \"{$session->title}\" — resolve before approval.",
+            );
+        }
+
+        return $this->back($session, $count === 0
+            ? 'Conflict scan complete — no conflicting requirements found.'
+            : "Conflict scan flagged {$count} conflict group(s). Resolve the flagged items before approval.");
     }
 
     public function consolidate(Request $request, Session $session): RedirectResponse
@@ -136,12 +188,23 @@ class SessionController extends Controller
         return $this->guard($session, fn () => $this->engine->consolidate($session), 'Session consolidated — ready for approval.');
     }
 
-    public function approve(Request $request, Session $session): RedirectResponse
+    public function approve(Request $request, Session $session, NotificationService $notifications): RedirectResponse
     {
         abort_unless($this->pdp->can($request->user(), 'approve', $session->project)->permitted, 403, 'Access denied by ACL.');
 
-        return $this->guard($session, fn () => $this->engine->approveSession($session, $request->user()),
-            'Session approved. Its objects can now be rolled into the stage baseline.');
+        try {
+            $this->engine->approveSession($session, $request->user());
+        } catch (SessionEngineException $e) {
+            return $this->back($session, $e->getMessage(), true);
+        }
+
+        $notifications->notifyProjectBindings(
+            $session->project, 'session_approved',
+            "Session \"{$session->title}\" approved — ready for baseline.",
+            $request->user()->id,
+        );
+
+        return $this->back($session, 'Session approved. Its objects can now be rolled into the stage baseline.');
     }
 
     public function capture(Request $request, Session $session, EngObject $object): RedirectResponse
@@ -149,10 +212,20 @@ class SessionController extends Controller
         $this->authorizeEdit($request, $session);
         abort_unless((int) $object->session_id === (int) $session->id, 404);
 
-        $decision = $request->validate(['decision' => ['required', 'in:confirm,correct,complete,decide']])['decision'];
+        $data = $request->validate([
+            'decision' => ['required', 'in:confirm,correct,complete,decide'],
+            'title' => ['nullable', 'string', 'max:255'],
+            'body' => ['nullable', 'string'],
+        ]);
 
-        return $this->guard($session, fn () => $this->engine->capture($object, $decision, $request->user()),
-            "Item {$object->ref}: {$decision} recorded.");
+        // Correct/Complete carry the human's revised text; confirm/decide ignore it.
+        $opts = array_filter([
+            'title' => $data['title'] ?? null,
+            'body' => $data['body'] ?? null,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        return $this->guard($session, fn () => $this->engine->capture($object, $data['decision'], $request->user(), $opts),
+            "Item {$object->ref}: {$data['decision']} recorded.");
     }
 
     private function guard(Session $session, callable $action, string $okMessage): RedirectResponse

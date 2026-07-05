@@ -1,58 +1,50 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# DevStage01 — URSB Requirement-to-Prototype Platform
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+DevStage01 guides a software project from its original business idea through **Objective → BRS → URS → SRS → SDS → Prototype → Validation**, producing a connected chain of evidence: every design decision traces back to a system requirement, a user requirement, a business requirement, and the original project objective.
 
-## About Laravel
+## What it does
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Evidence-driven requirements**: paste or upload source material (text/PDF/DOCX); AI pre-analysis drafts findings and requirements which humans confirm, correct, complete or decide through a quality firewall.
+- **Canonical object graph**: every artefact (evidence, requirement, risk, decision, design component, prototype element, test case, defect…) is a versioned, permanently-identified object (`BRS-REQ-0001`) with typed trace relationships.
+- **Stage gates & baselines**: stages baseline into frozen, approvable snapshots that render as documents (HTML/PDF) and review decks (HTML/PPTX).
+- **Change management**: baselined content is only editable through change requests with impact analysis and separation of duties.
+- **Registers**: RTM, verification & validation, design, prototype, issues, risks, decisions, coverage — all derived live from the graph.
+- **ACL**: deny-by-default policy decision point with tenant/project/module/stage/session scoping, delegation, field-level redaction and an immutable access audit.
+- **AI assistant**: project-scoped RAG chat and refinement actions, gated behind admin-configured API keys (Anthropic + Voyage), with deterministic fallbacks.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Stack
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Laravel 13 · PHP 8.3 · MySQL (dev) / sqlite (tests) · Tailwind v3 + Vite + Alpine (compiled assets committed) · Anthropic + Voyage APIs (optional).
 
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Run it
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer setup                     # install, .env, key, migrate
+php artisan migrate:fresh --seed   # full two-tenant demo data
+php artisan serve                  # http://127.0.0.1:8000
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Demo logins (password `password`): `admin@ursb.test` (admin), `pm@ursb.test` (PM, Acme ERP), `pm2@ursb.test` (PM, Petron Retail Ops).
 
-## Contributing
+To enable AI features: log in as admin → Settings → paste Anthropic + Voyage keys → tick *Enable AI/RAG*.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Tests
 
-## Code of Conduct
+```bash
+php artisan test        # full suite, sqlite :memory:
+vendor/bin/pint --test  # formatting
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Documentation
 
-## Security Vulnerabilities
+| Doc | Purpose |
+|---|---|
+| [docs/DEVSTAGE01-CURRENT-STATE-AUDIT.md](docs/DEVSTAGE01-CURRENT-STATE-AUDIT.md) | As-found system audit |
+| [docs/DEVSTAGE01-PRODUCT-BLUEPRINT.md](docs/DEVSTAGE01-PRODUCT-BLUEPRINT.md) | Target platform design |
+| [docs/DEVSTAGE01-IMPLEMENTATION-PLAN.md](docs/DEVSTAGE01-IMPLEMENTATION-PLAN.md) | Prioritised build plan |
+| [docs/DEVSTAGE01-DATA-MODEL.md](docs/DEVSTAGE01-DATA-MODEL.md) | Schema & object graph |
+| [docs/DEVSTAGE01-AI-ARCHITECTURE.md](docs/DEVSTAGE01-AI-ARCHITECTURE.md) | LLM integration design |
+| [docs/DEVSTAGE01-USER-GUIDE.md](docs/DEVSTAGE01-USER-GUIDE.md) | End-user walkthrough |
+| [docs/DEVSTAGE01-ADMIN-GUIDE.md](docs/DEVSTAGE01-ADMIN-GUIDE.md) | Admin console guide |
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Historical extraction notes live in `docs/archive/`.

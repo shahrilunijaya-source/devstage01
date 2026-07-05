@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\Acl\ScopeBinding;
 use App\Models\Graph\EngObject;
 use App\Models\Graph\TraceRelationship;
 use App\Models\Portfolio\Module;
@@ -12,7 +13,11 @@ use App\Models\Portfolio\Stage;
 use App\Models\Portfolio\Tenant;
 use App\Models\Project;
 use App\Services\AccessControl\PolicyDecisionPoint;
+use App\Services\Discussion\DiscussionService;
 use App\Services\Graph\TraceService;
+use App\Services\Portfolio\LifecycleSummaryService;
+use App\Services\Portfolio\NextBestActionService;
+use App\Services\Portfolio\ObjectiveService;
 use App\Services\Portfolio\PortfolioDashboardService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -49,13 +54,47 @@ class PortfolioController extends Controller
 
     public function dashboard(Request $request, PortfolioDashboardService $dashboard): View
     {
+        $cards = $dashboard->forUser($request->user());
+
         return view('portfolio.dashboard', [
-            'cards' => $dashboard->forUser($request->user()),
+            'cards' => $cards,
+            'summary' => $dashboard->summarize($cards),
             'columns' => $dashboard->lifecycleColumns(),
         ]);
     }
 
-    public function show(Request $request, Project $project, TraceService $trace): View
+    /** Read-only project team: who holds an active ACL binding on this project. */
+    public function team(Request $request, Project $project): View
+    {
+        abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');
+
+        $bindings = ScopeBinding::active()
+            ->where(function ($q) use ($project): void {
+                $q->where(fn ($w) => $w->where('scope_type', 'project')->where('scope_id', $project->id))
+                    ->orWhere(fn ($w) => $w->where('scope_type', 'tenant')->where('tenant_id', $project->tenant_id));
+            })
+            ->with('user:id,name,email', 'role:id,key,name')
+            ->get()
+            ->sortBy('user.name')
+            ->values();
+
+        return view('portfolio.team', [
+            'project' => $project,
+            'bindings' => $bindings,
+        ]);
+    }
+
+    /** Focused "what's blocked" view across the user's projects (CLAUDE.md). */
+    public function blocked(Request $request, PortfolioDashboardService $dashboard): View
+    {
+        $blocked = $dashboard->forUser($request->user())
+            ->filter(fn (array $c): bool => $c['health'] === 'blocked' || $c['blockedStages'] > 0)
+            ->values();
+
+        return view('portfolio.blocked', ['blocked' => $blocked]);
+    }
+
+    public function show(Request $request, Project $project, TraceService $trace, LifecycleSummaryService $lifecycle): View
     {
         abort_unless($this->pdp->can($request->user(), 'view', $project)->permitted, 403, 'Access denied by ACL.');
 
@@ -69,9 +108,13 @@ class PortfolioController extends Controller
         return view('portfolio.show', [
             'project' => $project,
             'chain' => $chain,
+            'lifecycle' => $lifecycle->summarize($project),
+            'objective' => app(ObjectiveService::class)->objectiveFor($project),
             'objectCount' => EngObject::where('project_id', $project->id)->count(),
             'canEdit' => $this->pdp->can($request->user(), 'edit', $project)->permitted,
             'canBaseline' => $this->pdp->can($request->user(), 'baseline', $project)->permitted,
+            'discussions' => app(DiscussionService::class)->for($project, $request->user()),
+            'nextActions' => app(NextBestActionService::class)->forProject($project, $request->user()),
         ]);
     }
 
@@ -95,8 +138,9 @@ class PortfolioController extends Controller
 
         $project = Project::create($data);
 
-        return redirect()->route('portfolio.show', $project)
-            ->with('status', "Project {$project->name} created.");
+        // Guided setup step 2: root the traceability chain before anything else.
+        return redirect()->route('objective.edit', ['project' => $project, 'wizard' => 1])
+            ->with('status', "Project {$project->name} created — now capture its objective.");
     }
 
     public function storeModule(Request $request, Project $project): RedirectResponse
@@ -142,6 +186,6 @@ class PortfolioController extends Controller
     {
         // Creating a brand-new project has no existing scope to bind against;
         // restrict to platform admins/directors (system role).
-        return in_array($request->user()->role, ['admin', 'director'], true);
+        return $request->user()->isAdmin() || $request->user()->isDirector();
     }
 }

@@ -16,6 +16,7 @@ use App\Models\Portfolio\Tenant;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\Graph\ObjectGraphService;
+use App\Services\Portfolio\ObjectiveService;
 use App\Services\Session\Exceptions\SessionEngineException;
 use App\Services\Session\SessionEngineService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,6 +46,11 @@ class SessionApprovalTest extends TestCase
             'user_id' => $pm->id, 'role_id' => Role::where('key', 'project_pm')->whereNull('tenant_id')->value('id'),
             'tenant_id' => $tenant->id, 'scope_type' => 'project', 'scope_id' => $project->id,
         ]);
+
+        // BRS gate requires an approved objective (spec §6).
+        $objectives = app(ObjectiveService::class);
+        $objectives->capture($project, ['title' => 'Objective', 'business_problem' => 'p'], $pm);
+        $objectives->approve($project, $pm);
 
         return [$session, $stage, $project, $pm];
     }
@@ -145,9 +151,10 @@ class SessionApprovalTest extends TestCase
     {
         [, $stage, $project, $pm] = $this->readySession();
 
+        // Blocked baselines land on the gate page, where the failing checks show.
         $this->actingAs($pm)->from(route('portfolio.show', $project))
             ->post(route('stages.baseline', $stage))
-            ->assertRedirect(route('portfolio.show', $project))
+            ->assertRedirect(route('stages.gate', $stage))
             ->assertSessionHas('error');
     }
 }

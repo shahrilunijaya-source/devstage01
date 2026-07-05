@@ -2,12 +2,48 @@
 
 namespace App\Services;
 
+use App\Models\Acl\ScopeBinding;
+use App\Models\ClaimMilestone;
 use App\Models\Notification;
+use App\Models\Portfolio\Module;
+use App\Models\Portfolio\Session;
+use App\Models\Portfolio\Stage;
 use App\Models\Project;
 use App\Models\User;
+use App\Models\WbsItem;
 
 class NotificationService
 {
+    /**
+     * Notify every user holding an active ACL binding that covers the project —
+     * at ANY scope level (tenant, project, module, stage, or session within the
+     * project), mirroring the PDP's scope hierarchy so finer-grained grants are
+     * not silently excluded. The actor may be excluded. This is the URSB-native
+     * audience (scope bindings), distinct from notifyProjectTeam() (legacy pivot).
+     */
+    public function notifyProjectBindings(Project $project, string $type, string $message, ?int $exceptUserId = null): void
+    {
+        $moduleIds = Module::where('project_id', $project->id)->pluck('id');
+        $stageIds = Stage::where('project_id', $project->id)->pluck('id');
+        $sessionIds = Session::where('project_id', $project->id)->pluck('id');
+
+        $userIds = ScopeBinding::active()
+            ->where(function ($q) use ($project, $moduleIds, $stageIds, $sessionIds): void {
+                $q->where(fn ($w) => $w->where('scope_type', 'tenant')->where('tenant_id', $project->tenant_id))
+                    ->orWhere(fn ($w) => $w->where('scope_type', 'project')->where('scope_id', $project->id))
+                    ->orWhere(fn ($w) => $w->where('scope_type', 'module')->whereIn('scope_id', $moduleIds))
+                    ->orWhere(fn ($w) => $w->where('scope_type', 'stage')->whereIn('scope_id', $stageIds))
+                    ->orWhere(fn ($w) => $w->where('scope_type', 'session')->whereIn('scope_id', $sessionIds));
+            })
+            ->pluck('user_id')
+            ->unique()
+            ->reject(fn ($id): bool => $exceptUserId !== null && (int) $id === $exceptUserId);
+
+        foreach ($userIds as $userId) {
+            $this->notify((int) $userId, $type, $message, $project->id);
+        }
+    }
+
     /**
      * Notify all users with specific roles on a project.
      */
@@ -133,7 +169,7 @@ class NotificationService
         $today = now()->startOfDay();
 
         // Find all WBS items that are overdue (planned_end < today, no actual_end, is_leaf)
-        $overdueTasks = \App\Models\WbsItem::query()
+        $overdueTasks = WbsItem::query()
             ->where('is_leaf', true)
             ->where('planned_end', '<', $today)
             ->whereNull('actual_end')
@@ -178,7 +214,7 @@ class NotificationService
         $sevenDaysFromNow = $today->copy()->addDays(7);
 
         // Find claim milestones due within 7 days
-        $claimsDue = \App\Models\ClaimMilestone::query()
+        $claimsDue = ClaimMilestone::query()
             ->whereBetween('target_date', [$today, $sevenDaysFromNow])
             ->whereNotIn('claim_status', ['received', 'cancelled'])
             ->with('project')

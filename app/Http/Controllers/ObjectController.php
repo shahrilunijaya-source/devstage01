@@ -6,14 +6,19 @@ namespace App\Http\Controllers;
 
 use App\Enums\ObjectStatus;
 use App\Enums\ObjectType;
+use App\Models\AiSuggestion;
 use App\Models\Graph\EngObject;
+use App\Models\Graph\TraceRelationship;
 use App\Models\Project;
 use App\Services\AccessControl\PolicyDecisionPoint;
+use App\Services\Discussion\DiscussionService;
 use App\Services\Graph\TraceService;
+use App\Services\Rag\RagService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Single canonical-object inspection + traceability (PRD §12.3). Shows the
@@ -25,6 +30,15 @@ class ObjectController extends Controller
     public function __construct(private readonly PolicyDecisionPoint $pdp) {}
 
     private const PER_PAGE = 25;
+
+    /** Max search-term length accepted before truncation. */
+    private const MAX_QUERY = 100;
+
+    /** Escape LIKE metacharacters so the term matches literally. */
+    private function escapeLike(string $term): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term);
+    }
 
     /** Filterable, ACL-scoped browser over a project's canonical objects (PRD §12). */
     public function index(Request $request, Project $project): View
@@ -39,18 +53,24 @@ class ObjectController extends Controller
             'q' => trim((string) $request->query('q', '')),
         ];
 
+        // Cap length and neutralise LIKE wildcards so a search term can't force a
+        // pathological leading-`%` scan or inject `%`/`_` matching semantics.
+        $needle = $this->escapeLike(Str::limit($filters['q'], self::MAX_QUERY, ''));
+
         $matches = EngObject::forProject($project->id)
             ->when($filters['type'], fn ($query, $type) => $query->where('type', $type))
             ->when($filters['status'], fn ($query, $status) => $query->where('status', $status))
-            ->when($filters['q'], fn ($query, $term) => $query->where(
-                fn ($q) => $q->where('ref', 'like', "%{$term}%")
-                    ->orWhere('title', 'like', "%{$term}%")
-                    ->orWhere('body', 'like', "%{$term}%"),
+            ->when($filters['q'] !== '', fn ($query) => $query->where(
+                fn ($q) => $q->where('ref', 'like', "%{$needle}%")
+                    ->orWhere('title', 'like', "%{$needle}%")
+                    ->orWhere('body', 'like', "%{$needle}%"),
             ))
             ->orderBy('type')->orderBy('ref')
             ->get()
             // Deny-by-default: drop objects the viewer may not see (e.g. restricted).
-            ->filter(fn (EngObject $o): bool => $this->pdp->can($user, 'view', $o)->permitted)
+            // Bulk visibility filter → non-audited allows() (the page view itself is
+            // audited once by the project gate above).
+            ->filter(fn (EngObject $o): bool => $this->pdp->allows($user, 'view', $o))
             ->values();
 
         $rows = $matches->map(fn (EngObject $o): array => [
@@ -95,6 +115,10 @@ class ObjectController extends Controller
             'forward' => $this->visible($trace->forwardTrace($object), $user),
             'reverse' => $this->visible($trace->reverseTrace($object), $user),
             'canEdit' => $this->pdp->can($user, 'edit', $object)->permitted,
+            'discussions' => app(DiscussionService::class)->for($object, $user),
+            'suggestions' => AiSuggestion::where('object_id', $object->id)
+                ->with(['creator', 'decider'])->orderByDesc('id')->get(),
+            'aiEnabled' => RagService::enabled(),
         ]);
     }
 
@@ -102,14 +126,14 @@ class ObjectController extends Controller
      * Map trace edges to display rows {relation, object}, dropping neighbours
      * the viewer may not see (deny-by-default extends to the graph walk).
      *
-     * @param  Collection<int, \App\Models\Graph\TraceRelationship>  $edges
+     * @param  Collection<int, TraceRelationship>  $edges
      * @return Collection<int, array{relation:string, object:EngObject}>
      */
     private function neighbours(Collection $edges, string $rel, $user): Collection
     {
         return $edges
             ->map(fn ($edge) => ['relation' => $edge->relation_type->label(), 'object' => $edge->{$rel}])
-            ->filter(fn (array $row): bool => $row['object'] !== null && $this->pdp->can($user, 'view', $row['object'])->permitted)
+            ->filter(fn (array $row): bool => $row['object'] !== null && $this->pdp->allows($user, 'view', $row['object']))
             ->values();
     }
 
@@ -120,7 +144,7 @@ class ObjectController extends Controller
     private function visible(array $objects, $user): Collection
     {
         return collect($objects)
-            ->filter(fn (EngObject $o): bool => $this->pdp->can($user, 'view', $o)->permitted)
+            ->filter(fn (EngObject $o): bool => $this->pdp->allows($user, 'view', $o))
             ->values();
     }
 }

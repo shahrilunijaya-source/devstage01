@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-07-05T02:35:50Z",
+  "phase": "refinement-pass",
+  "phase_name": "URSB master-spec refinement pass (audit -> blueprint -> plan -> implement -> test -> docs)",
+  "phase_dir": null,
+  "plan": null,
+  "task": null,
+  "total_tasks": 8,
+  "status": "complete-pending-user-gates",
+  "completed_tasks": [
+    {"id": 1, "name": "Current-state audit + product blueprint + implementation plan (docs)", "status": "done", "commit": "3970cec"},
+    {"id": 2, "name": "G0: remove 27 dead Track PMS files; bind ToolRegistry (chat 502 fix); URSB chat tools", "status": "done", "commit": "0f10fdf"},
+    {"id": 3, "name": "G1: server-side stage-gate enforcement, session phase guards, baseline reopen", "status": "done", "commit": "1b47a17"},
+    {"id": 4, "name": "G2: Project Objective Baseline (OBJECTIVE type, wizard, BRS gate, auto-trace)", "status": "done", "commit": "7e94875"},
+    {"id": 5, "name": "G3: discussions at every level (internal/client visibility, blocking gate, convert-to)", "status": "done", "commit": "98cd208"},
+    {"id": 6, "name": "G4: AI Refinement Engine (5 actions, stored proposals, versioned prompts, usage log)", "status": "done", "commit": "f87298d"},
+    {"id": 7, "name": "G5: Objective Guardian + downstream impact disposition on change requests", "status": "done", "commit": "7faba5d"},
+    {"id": 8, "name": "G6: Next Best Action panel + per-stage guidance cards; then all sec24 docs", "status": "done", "commit": "601ea1f"}
+  ],
+  "remaining_tasks": [],
+  "blockers": [],
+  "human_actions_pending": [
+    {"action": "Run `php artisan migrate` against dev MySQL (devstage01) when Laragon MySQL is up", "context": "Migrations 2026_07_04_100000..140000 were authored while MySQL was down; sqlite in-memory suite verifies schema but dev DB not yet migrated. Enum/JSON semantics need a real MySQL apply (or `migrate:fresh --seed`).", "blocking": false},
+    {"action": "Decide whether to push the branch to origin/main", "context": "68 commits ahead of origin/main incl. the 9 refinement-pass commits (3970cec..601ea1f). Nothing pushed. User said 'Say push when you want it deployed'. deploy.sh targets Hostinger multi-env via GitHub webhook -> pushing deploys.", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "Objective modelled as a graph object (OBJECTIVE type), not a new table", "rationale": "Inherits versioning, tracing, ACL, redaction, approval for free (D2)", "phase": "refinement-pass"},
+    {"decision": "Single gate authority StageGateService consumed by both gate page and POST baseline; hard vs overridable checks", "rationale": "F-05: gate was advisory client-side only; empty/double baseline is integrity fault not exception (D3)", "phase": "refinement-pass"},
+    {"decision": "AI is advisory everywhere; only Guardian direct_conflict hard-requires a recorded override reason at CR approval", "rationale": "Spec sec7: AI must advise not decide; degrade to insufficient_information on LLM outage, never block CR intake (D8/D9)", "phase": "refinement-pass"},
+    {"decision": "Removed (not fixed) Track PMS sentiment/insight/monthly-report/Drive-ingest + per-project chat", "rationale": "Referenced 9 nonexistent classes (fatal if run); no URSB requirement needs them; tables kept pending owner decision (D13)", "phase": "refinement-pass"}
+  ],
+  "uncommitted_files": [],
+  "next_action": "None required. Await user instruction on the two gates: (a) `php artisan migrate` on dev MySQL once Laragon up, (b) `push` to deploy. Full green suite (299 tests) already verified.",
+  "context_notes": "Refinement pass COMPLETE. HEAD=601ea1f on main, tree clean before this handoff commit. Suite 299/299 (810 assertions), pint clean. PHPStan cannot run on this Windows ZTS PHP (silent exit 1) -> needs Linux/CI. Bash-tool pipes JSON-wrap phpunit/pint output; PowerShell shows real output. Deferred backlog documented in docs/DEVSTAGE01-ASSUMPTIONS-AND-DECISIONS.md. Memory written: ursb-refinement-pass.md + MEMORY.md pointer."
+}

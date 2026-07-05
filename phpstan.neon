@@ -1,0 +1,20 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+
+    # Start pragmatic on a mature codebase; raise over time (max is 10).
+    level: 5
+
+    # Exclude generated / framework-bootstrapped paths.
+    excludePaths:
+        - app/Console/Kernel.php
+
+    checkMissingIterableValueType: false
+
+    # ZTS Windows PHP build: PHPStan's multi-process workers crash silently
+    # (exit 1, no output). Force single-process analysis.
+    parallel:
+        maximumNumberOfProcesses: 1

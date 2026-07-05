@@ -16,6 +16,7 @@ use App\Models\Project;
 use App\Models\User;
 use App\Services\Document\DeckBuilder;
 use App\Services\Graph\ObjectGraphService;
+use App\Services\Portfolio\ObjectiveService;
 use App\Services\Session\SessionEngineService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -44,6 +45,10 @@ class DeckTest extends TestCase
             'user_id' => $pm->id, 'role_id' => Role::where('key', 'project_pm')->whereNull('tenant_id')->value('id'),
             'tenant_id' => $tenant->id, 'scope_type' => 'project', 'scope_id' => $project->id,
         ]);
+
+        $objectives = app(ObjectiveService::class);
+        $objectives->capture($project, ['title' => 'Objective', 'business_problem' => 'p'], $pm);
+        $objectives->approve($project, $pm);
 
         $engine = app(SessionEngineService::class);
         $engine->preAnalyze($session);

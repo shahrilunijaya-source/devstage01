@@ -52,7 +52,10 @@
     </style>
 </head>
 <body>
-<div class="topbar"><a href="{{ route('baselines.show', $baseline) }}">← Back to document</a></div>
+<div class="topbar">
+    <a href="{{ route('baselines.deck.pptx', $baseline) }}">Download .pptx</a>
+    <a href="{{ route('baselines.show', $baseline) }}">← Back to document</a>
+</div>
 
 <div class="deck" id="deck">
     {{-- Title slide --}}
